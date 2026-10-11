@@ -226,8 +226,8 @@ def corr_heatmap(df,cols,key):
         matrix.loc[r["Variable B"],r["Variable A"]]=r["rho"]
     fig=go.Figure(go.Heatmap(z=matrix.to_numpy(dtype=float),x=names,y=names,zmin=-1,zmax=1,zmid=0,
                              colorscale=[[0,"#C36C70"],[.5,"#F6F8FA"],[1,"#087F8C"]],
-                             text=np.where(np.isfinite(matrix.to_numpy(dtype=float)),
-                                           np.round(matrix.to_numpy(dtype=float),2).astype(str),""),
+                             text=[[f"{v:.2f}" if np.isfinite(v) else "" for v in row]
+                                   for row in matrix.to_numpy(dtype=float)],
                              texttemplate="%{text}",textfont=dict(size=11),colorbar=dict(title="ρ")))
     fig.update_xaxes(tickangle=-35,automargin=True)
     fig.update_yaxes(autorange="reversed",automargin=True)
@@ -300,6 +300,17 @@ if upload is None:
 try:
     d,origin=get_data(parse_excel(upload.getvalue()))
     if d is None:st.error("No se identificó una hoja Base_modelo ni las 11 preguntas originales.");st.stop()
+    needed=["Flota_cat","Tipo_carga","Educacion_cat","Capacitacion_01",
+            "Costo_1a5","Eficiencia_1a5","Numero_tecnologias_8"]+list(TECH)
+    missing=[c for c in needed if c not in d.columns]
+    if missing:
+        st.error("La base no contiene las variables requeridas: "+", ".join(missing))
+        st.stop()
+    for c in list(TECH)+["Numero_tecnologias_8","Capacitacion_01","Incentivos_01",
+                         "Flota_ord","Antiguedad_ord","Conocimiento_1a5","Costo_1a5","Eficiencia_1a5"]:
+        if c in d.columns:d[c]=pd.to_numeric(d[c],errors="coerce")
+    if d["Numero_tecnologias_8"].isna().all():
+        d["Numero_tecnologias_8"]=d[list(TECH)].sum(axis=1)
 except Exception as e:
     st.error(f"No se pudo leer el archivo: {e}");st.stop()
 
