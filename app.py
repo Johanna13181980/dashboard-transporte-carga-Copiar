@@ -275,38 +275,45 @@ def group_test(df,group):
     return label,statistic,float(p),sizes
 
 
-def regression(df,xcol,ycol,key):
-    sub=df[[xcol,ycol]].apply(pd.to_numeric,errors="coerce").dropna()
-    if len(sub)<12 or sub[xcol].nunique()<2 or sub[ycol].nunique()<2:
-        st.info("No hay observaciones o variación suficientes para estimar esta regresión.");return
-    x=sub[xcol].to_numpy(dtype=float); y=sub[ycol].to_numpy(dtype=float)
-    def slope(xx,yy):
-        if np.var(xx)<1e-12:return np.nan
-        return float(np.cov(xx,yy,ddof=0)[0,1]/np.var(xx))
-    beta=slope(x,y)
-    if not np.isfinite(beta):
-        st.info("La variable explicativa no tiene variación suficiente.");return
-    rng=np.random.default_rng(2026)
-    bs=[]
-    for _ in range(1999):
-        ix=rng.integers(0,len(x),len(x))
-        b=slope(x[ix],y[ix])
-        if np.isfinite(b):bs.append(b)
-    if len(bs)<100:
-        st.info("No fue posible calcular intervalos estables con remuestreo.");return
-    lo,hi=np.percentile(bs,[2.5,97.5])
-    r=np.corrcoef(x,y)[0,1]
-    fig=go.Figure(go.Scatter(x=[beta],y=[NUMERIC[xcol]],mode="markers",
-                             marker=dict(size=12,color=TEAL),
-                             error_x=dict(type="data",symmetric=False,
-                                          array=[max(0,float(hi-beta))],
-                                          arrayminus=[max(0,float(beta-lo))])))
-    fig.add_vline(x=0,line_dash="dash",line_color=GRAY)
-    fig.update_xaxes(title="Pendiente e intervalo bootstrap 95 %")
-    panel("Regresión lineal exploratoria",fig,key,
-          f"Dependiente: {NUMERIC[ycol]}; n={len(sub)}; pendiente={beta:.3f}; R²={r*r:.3f}.",height=250)
-    st.caption("Intervalo bootstrap percentil (1.999 remuestreos). Análisis exploratorio, "
-               "sin inferencia causal; la escala ordinal o de conteo limita la interpretación.")
+def adoption_efficiency(df,key):
+    sub=df[["Numero_tecnologias_8","Eficiencia_1a5"]].apply(pd.to_numeric,errors="coerce").dropna()
+    if sub.empty:
+        st.info("No hay datos completos para esta comparación.");return
+    freq=sub.groupby(["Numero_tecnologias_8","Eficiencia_1a5"]).size().reset_index(name="Empresas")
+    fig=px.scatter(freq,x="Numero_tecnologias_8",y="Eficiencia_1a5",
+                   size="Empresas",color="Empresas",size_max=36,
+                   color_continuous_scale=["#B4D6D5",TEAL,NAVY],
+                   labels={"Numero_tecnologias_8":"Número de tecnologías (0–8)",
+                           "Eficiencia_1a5":"Eficiencia percibida (1–5)"})
+    fig.update_xaxes(dtick=1,range=[-0.5,8.5])
+    fig.update_yaxes(dtick=1,range=[0.5,5.5])
+    fig.update_layout(coloraxis_showscale=False)
+    pairs=spearman_table(sub,["Numero_tecnologias_8","Eficiencia_1a5"])
+    detail=(f"rho de Spearman = {pairs.iloc[0]['rho']:.3f}" if not pairs.empty
+            else "sin variación suficiente para calcular rho")
+    panel("Adopción tecnológica y eficiencia percibida",fig,key,
+          f"n={len(sub)}; {detail}. El tamaño del círculo representa empresas. "
+          "Asociación descriptiva, no causal.",height=380)
+    st.caption("La eficiencia es percibida y no una medición objetiva de productividad.")
+
+def adoption_by_fleet(df,key):
+    sub=df[["Flota_cat","Numero_tecnologias_8"]].dropna()
+    if sub.empty:
+        st.info("No hay datos suficientes para comparar flotas.");return
+    summary=(sub.groupby("Flota_cat")["Numero_tecnologias_8"]
+             .agg(Empresas="count",Promedio="mean",Mediana="median")
+             .reset_index().sort_values("Promedio"))
+    fig=go.Figure(go.Bar(
+        y=summary["Flota_cat"],x=summary["Promedio"],orientation="h",
+        marker_color=TEAL,
+        text=[f"{v:.2f} (n={n})" for v,n in zip(summary["Promedio"],summary["Empresas"])],
+        textposition="outside"))
+    fig.update_xaxes(title="Promedio de tecnologías adoptadas",range=[0,9])
+    fig.update_yaxes(title="")
+    panel("Adopción tecnológica por tamaño de flota",fig,key,
+          "Comparación descriptiva de promedios, indicando tamaños de grupo.",height=340)
+    st.dataframe(summary.round(2),hide_index=True,use_container_width=True)
+
 
 
 with st.sidebar:
@@ -415,16 +422,10 @@ with tabs[5]:
         if min(ns)<5:st.warning("Al menos un grupo tiene menos de cinco empresas; interprete esta prueba con especial cautela.")
         st.caption("Prueba exploratoria sin ajuste por comparaciones múltiples. "
                    "Considere tamaños de efecto, distribución de los grupos y limitaciones de n.")
-    st.subheader("Regresión exploratoria")
-    c1,c2=st.columns(2)
-    with c1:
-        ycol=st.selectbox("Variable dependiente",["Eficiencia_1a5","Numero_tecnologias_8"],
-                          format_func=lambda c:NUMERIC[c])
-    with c2:
-        options=[x for x in ["Numero_tecnologias_8","Conocimiento_1a5","Costo_1a5",
-                            "Capacitacion_01","Flota_ord","Antiguedad_ord","Eficiencia_1a5"] if x!=ycol]
-        xcol=st.selectbox("Variable explicativa (una sola)",options,format_func=lambda c:NUMERIC[c])
-    regression(d,xcol,ycol,"stat_reg")
+    st.subheader("Adopción y eficiencia percibida")
+    adoption_efficiency(d,"stat_adoption_efficiency")
+    st.subheader("Adopción por tamaño de flota")
+    adoption_by_fleet(d,"stat_fleet")
 with tabs[6]:
     st.subheader("Base filtrada")
     st.dataframe(d,use_container_width=True,hide_index=True)

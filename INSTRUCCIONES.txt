@@ -1,1 +1,1 @@
-Reemplazar app.py Y requirements.txt en la raiz del repositorio GitHub (rama main). Confirmar ambos cambios. Recargar Streamlit. Cargar la base Excel en la aplicacion. No publicar respuestas privadas en GitHub.
+Reemplace app.py y requirements.txt en GitHub rama main usando Add file > Upload files y Commit changes. Cargue su Excel en Streamlit. Se eliminó regresión y se añadieron asociaciones descriptivas.
