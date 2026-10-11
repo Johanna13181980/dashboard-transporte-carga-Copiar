@@ -11,9 +11,12 @@ import streamlit as st
 st.set_page_config(page_title="Transporte de carga | Análisis científico", page_icon="📊",
                    layout="wide", initial_sidebar_state="expanded")
 
-NAVY="#153D58"; TEAL="#087F8C"; BLUE="#3979A8"; CORAL="#DF7965"
-GOLD="#D6A247"; SAGE="#75A995"; LAVENDER="#8C84B4"; GRAY="#8295A3"
-PALETTE=[NAVY,TEAL,BLUE,CORAL,GOLD,SAGE,LAVENDER,GRAY]
+NAVY="#153D58"; TEAL="#087F8C"; BLUE="#3979A8"; CORAL="#C97765"
+GOLD="#C99C46"; SAGE="#75A995"; LAVENDER="#8C84B4"; GRAY="#8295A3"
+PLUM="#A26C8C"; CYAN="#4B9EAE"; OLIVE="#929D66"; SLATE="#59778C"
+PALETTE=[NAVY,TEAL,BLUE,CORAL,GOLD,SAGE,LAVENDER,PLUM,CYAN,OLIVE,SLATE,GRAY]
+TECH_PALETTE=[BLUE,TEAL,CYAN,SAGE,LAVENDER,PLUM,GOLD,CORAL]
+
 TECH={
 "T1_GPS":"GPS y rastreo",
 "T2_Rutas":"Software de rutas",
@@ -52,6 +55,49 @@ padding:15px 17px;min-height:110px}
 .metric .value{font-size:1.9rem;color:#153D58;font-weight:750;margin:6px 0 0}
 .metric .foot{font-size:.75rem;color:#758695}
 div[data-testid="stVerticalBlockBorderWrapper"]>div{border-radius:11px!important}
+
+/* Filtros: azul petróleo en lugar de rojo */
+section[data-testid="stSidebar"] [data-baseweb="tag"]{
+ background:#276B7A!important;border:1px solid #276B7A!important;border-radius:6px!important;
+}
+section[data-testid="stSidebar"] [data-baseweb="tag"] span,
+section[data-testid="stSidebar"] [data-baseweb="tag"] div,
+section[data-testid="stSidebar"] [data-baseweb="tag"] svg{
+ color:#FFFFFF!important;fill:#FFFFFF!important;
+}
+section[data-testid="stSidebar"] [data-baseweb="select"] > div{
+ background:#FFFFFF!important;border:1px solid #C9D8E2!important;border-radius:9px!important;
+}
+section[data-testid="stSidebar"] [data-baseweb="select"] input{
+ color:#153D58!important;
+}
+/* Zona de carga: contraste y legibilidad */
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] section,
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]{
+ background:#EAF2F7!important;border:2px dashed #86A9BD!important;border-radius:10px!important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *,
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] small,
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] p{
+ color:#23475E!important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] button{
+ background:#276B7A!important;color:#FFFFFF!important;border:1px solid #276B7A!important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] button *{color:#FFFFFF!important;}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"]{
+ background:#DCEAF2!important;border-radius:8px!important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] *{color:#153D58!important;}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] button{
+ background:transparent!important;border:none!important;
+}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] button *{color:#153D58!important;}
+/* Botones y selección de pestañas: mismo lenguaje visual */
+div[data-testid="stTabs"] button[aria-selected="true"]{
+ color:#087F8C!important;border-bottom-color:#087F8C!important;
+}
+
 </style>
 """,unsafe_allow_html=True)
 
@@ -170,7 +216,8 @@ def tech_chart(df,key):
     z=pd.DataFrame({"Tecnología":list(TECH.values()),"n":[int(df[c].sum()) for c in TECH]})
     z["%"]=100*z["n"]/max(1,n)
     z=z.sort_values("%",ascending=True)
-    fig=go.Figure(go.Bar(x=z["%"],y=z["Tecnología"],orientation="h",marker_color=TEAL,
+    fig=go.Figure(go.Bar(x=z["%"],y=z["Tecnología"],orientation="h",
+                         marker_color=[TECH_PALETTE[list(TECH.values()).index(t)] for t in z["Tecnología"]],
                          text=z["%"].map(lambda x:f"{x:.1f}%"),textposition="outside",
                          customdata=z["n"],hovertemplate="%{y}<br>%{x:.1f}% · %{customdata} empresas<extra></extra>"))
     fig.update_xaxes(title="% de empresas",range=[0,max(105,z["%"].max()*1.15)])
@@ -182,7 +229,7 @@ def likert(df,key):
     a=pd.to_numeric(df["Costo_1a5"],errors="coerce").dropna()
     b=pd.to_numeric(df["Eficiencia_1a5"],errors="coerce").dropna()
     fig=go.Figure()
-    palette=["#BD6372","#E9A18D","#D6DDE3","#8FC2B4","#087F8C"]
+    palette=["#B86773","#DB9A7B","#BFCAD2","#75B4A3","#087F8C"]
     for score in range(1,6):
         fig.add_trace(go.Bar(y=["Costos percibidos","Eficiencia percibida"],
                              x=[100*(a==score).mean() if len(a) else 0,
@@ -305,7 +352,7 @@ def adoption_by_fleet(df,key):
              .reset_index().sort_values("Promedio"))
     fig=go.Figure(go.Bar(
         y=summary["Flota_cat"],x=summary["Promedio"],orientation="h",
-        marker_color=TEAL,
+        marker_color=[PALETTE[i%len(PALETTE)] for i in range(len(summary))],
         text=[f"{v:.2f} (n={n})" for v,n in zip(summary["Promedio"],summary["Empresas"])],
         textposition="outside"))
     fig.update_xaxes(title="Promedio de tecnologías adoptadas",range=[0,9])
@@ -387,7 +434,8 @@ with tabs[2]:
     else:st.dataframe(p5.value_counts().rename_axis("Respuesta").reset_index(name="Menciones"),
                       hide_index=True,use_container_width=True)
     tech_counts=d["Numero_tecnologias_8"].value_counts().reindex(range(9),fill_value=0)
-    fig=go.Figure(go.Bar(x=tech_counts.index,y=tech_counts.values,marker_color=TEAL,
+    fig=go.Figure(go.Bar(x=tech_counts.index,y=tech_counts.values,
+                         marker_color=[PALETTE[i%len(PALETTE)] for i in range(len(tech_counts))],
                          text=tech_counts.values,textposition="outside"))
     fig.update_xaxes(dtick=1,title="Número de tecnologías adoptadas")
     fig.update_yaxes(title="Empresas")

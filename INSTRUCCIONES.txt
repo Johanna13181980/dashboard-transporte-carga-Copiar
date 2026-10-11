@@ -1,1 +1,1 @@
-Reemplace app.py y requirements.txt en GitHub rama main usando Add file > Upload files y Commit changes. Cargue su Excel en Streamlit. Se eliminó regresión y se añadieron asociaciones descriptivas.
+ACTUALIZACIÓN VISUAL: paleta ampliada para categorías y tecnologías. No cambia la base, los filtros ni los cálculos estadísticos. En GitHub > Add file > Upload files, suba app.py y requirements.txt; confirme Commit changes. No suba datos de empresas a GitHub.
