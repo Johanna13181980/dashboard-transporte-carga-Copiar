@@ -153,7 +153,10 @@ with st.sidebar:
     st.markdown('### Filtros')
     for col,name in [('Flota_cat','Tamaño de flota'),('Tipo_carga','Tipo de carga'),('Educacion_cat','Nivel educativo'),('Capacitacion_01','Capacitación')]:
         opts=sorted(d[col].dropna().unique().tolist(),key=str)
-        selected=st.multiselect(name,opts,default=opts,format_func=(lambda x:'Sí' if x==1 else 'No') if col=='Capacitacion_01' else None)
+        if col=='Capacitacion_01':
+            selected=st.multiselect(name,opts,default=opts,format_func=lambda x:'Sí' if x==1 else 'No',key='filtro_'+col)
+        else:
+            selected=st.multiselect(name,opts,default=opts,key='filtro_'+col)
         d=d[d[col].isin(selected)]
     st.caption(f'Empresas seleccionadas: {len(d)}')
 if d.empty:st.warning('No hay empresas con estos filtros.');st.stop()
