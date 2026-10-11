@@ -206,7 +206,11 @@ def spearman_table(df,cols):
         for b in cols[i+1:]:
             sub=df[[a,b]].apply(pd.to_numeric,errors="coerce").dropna()
             if len(sub)<5 or sub[a].nunique()<2 or sub[b].nunique()<2:continue
-            rho=sub[a].corr(sub[b],method="spearman")
+            # Spearman = correlación de Pearson entre rangos promediados para empates.
+            # No utilizar method="spearman": Pandas importa scipy internamente.
+            rank_a=sub[a].rank(method="average").to_numpy(dtype=float)
+            rank_b=sub[b].rank(method="average").to_numpy(dtype=float)
+            rho=float(np.corrcoef(rank_a,rank_b)[0,1])
             if np.isfinite(rho):
                 records.append({"Variable A":NUMERIC[a],"Variable B":NUMERIC[b],
                                 "rho":float(rho),"n":len(sub)})
@@ -375,7 +379,9 @@ with tabs[2]:
     if p5.empty:st.info("No hay respuestas abiertas adicionales registradas.")
     else:st.dataframe(p5.value_counts().rename_axis("Respuesta").reset_index(name="Menciones"),
                       hide_index=True,use_container_width=True)
-    fig=px.histogram(d,x="Numero_tecnologias_8",nbins=9,color_discrete_sequence=[TEAL])
+    tech_counts=d["Numero_tecnologias_8"].value_counts().reindex(range(9),fill_value=0)
+    fig=go.Figure(go.Bar(x=tech_counts.index,y=tech_counts.values,marker_color=TEAL,
+                         text=tech_counts.values,textposition="outside"))
     fig.update_xaxes(dtick=1,title="Número de tecnologías adoptadas")
     fig.update_yaxes(title="Empresas")
     panel("Intensidad de adopción tecnológica",fig,"tech_intensity")
