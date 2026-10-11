@@ -1,4 +1,5 @@
 import io, re, unicodedata
+from itertools import count
 from pathlib import Path
 from collections import Counter
 import pandas as pd
@@ -66,6 +67,11 @@ def technologies(v):
    if fragment.strip():found.append('Revisar: '+fragment.strip())
  return list(dict.fromkeys(found))
 
+_chart_counter = count()
+
+def show_chart(fig):
+ st.plotly_chart(fig, use_container_width=True, key=f'chart_{next(_chart_counter)}')
+
 def plot_counts(df,col,title,horizontal=False):
  counts=df[col].map(label).value_counts().rename_axis('Categoría').reset_index(name='Empresas')
  if horizontal:
@@ -74,27 +80,28 @@ def plot_counts(df,col,title,horizontal=False):
  else:fig=px.bar(counts,x='Categoría',y='Empresas',text='Empresas',title=title)
  fig.update_traces(textposition='outside',marker_color=COLORS[0])
  fig.update_layout(height=max(330,len(counts)*42+100) if horizontal else 350,margin=dict(l=10,r=20,t=55,b=40),showlegend=False)
- st.plotly_chart(fig,use_container_width=True)
+ show_chart(fig)
 
 def donut(df,col,title):
  counts=df[col].map(label).value_counts().rename_axis('Categoría').reset_index(name='Empresas')
  fig=px.pie(counts,names='Categoría',values='Empresas',hole=.58,title=title,color_discrete_sequence=COLORS)
  fig.update_traces(textinfo='percent')
  fig.update_layout(height=360,margin=dict(l=5,r=5,t=55,b=45),legend=dict(orientation='h',y=-.18))
-st.plotly_chart(fig, use_container_width=True, key="grafico_principal")
+ show_chart(fig)
+
 def heatmap(df,x,y,title):
  ct=pd.crosstab(df[x].map(label),df[y].map(label))
  if ct.empty:return
  fig=px.imshow(ct,text_auto=True,aspect='auto',title=title,color_continuous_scale=[[0,'#EAF1F2'],[1,'#2F6079']])
  fig.update_layout(height=390,margin=dict(l=20,r=20,t=55,b=65),xaxis_title='',yaxis_title='')
- st.plotly_chart(fig,use_container_width=True)
+ show_chart(fig)
 
 def scaleplot(df,col,title):
  counts=df[col].value_counts().reindex([1,2,3,4,5],fill_value=0)
  fig=px.bar(x=[str(i) for i in counts.index],y=counts.values,text=counts.values,title=title,labels={'x':'Escala Likert','y':'Empresas'})
  fig.update_traces(marker_color=COLORS[0],textposition='outside')
  fig.update_layout(height=350,margin=dict(l=15,r=20,t=55,b=40))
- st.plotly_chart(fig,use_container_width=True)
+ show_chart(fig)
 
 st.sidebar.header('🚚 Datos y filtros')
 upload=st.sidebar.file_uploader('Cargue el Excel de respuestas',type='xlsx')
@@ -159,7 +166,7 @@ with tabs[2]:
   fig=px.bar(t,x='Empresas',y='Tecnología',orientation='h',text='Empresas',color='Porcentaje',color_continuous_scale=[[0,'#B8CCD1'],[1,'#285C77']],title='P4 · Tecnologías implementadas')
   fig.update_traces(textposition='outside')
   fig.update_layout(height=max(420,48*len(t)+110),margin=dict(l=10,r=30,t=55,b=30))
-  st.plotly_chart(fig,use_container_width=True)
+  show_chart(fig)
   st.caption('Selección múltiple: los porcentajes pueden sumar más del 100 %.')
   a,b=st.columns(2)
   with a:plot_counts(d,'Cantidad tecnologías','Diversificación tecnológica')
@@ -179,7 +186,7 @@ with tabs[4]:
   g=valid.groupby(['Costo Likert','Eficiencia Likert']).size().reset_index(name='Empresas')
   fig=px.scatter(g,x='Costo Likert',y='Eficiencia Likert',size='Empresas',color='Empresas',size_max=46,title='Asociación descriptiva entre percepciones')
   fig.update_xaxes(dtick=1,range=[.5,5.5]);fig.update_yaxes(dtick=1,range=[.5,5.5])
-  st.plotly_chart(fig,use_container_width=True)
+  show_chart(fig)
 with tabs[5]:
  sensitive=['correo','email','nombre','telefono','cedula','documento de identidad','direccion','marca temporal']
  export=[c for c in df.columns if not c.startswith('P') or c in df.columns[:0]]
