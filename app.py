@@ -1,486 +1,275 @@
-
-import io
-import re
-import html
+import io, re, html, math
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 
-st.set_page_config(page_title="Transporte de carga | Análisis científico", page_icon="📊",
-                   layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title='Transporte de carga | Evidencia empírica',page_icon='📊',layout='wide')
+NAVY='#173B55'; TEAL='#217C83'; BLUE='#487EA2'; CYAN='#5EADB0'; GOLD='#C49A52'; SAGE='#76A591'; PLUM='#94799E'; CORAL='#C48470'; SLATE='#708B9E'
+COLORS=[TEAL,BLUE,GOLD,SAGE,PLUM,CORAL,CYAN,SLATE]
+TECH={'T1_GPS':'GPS y rastreo','T2_Rutas':'Gestión de rutas','T3_IoT':'Sensores IoT','T4_TMS_WMS':'TMS / WMS','T5_Apps':'Aplicaciones móviles','T6_Mantenimiento':'Mantenimiento predictivo','T7_Telemetria':'Telemetría','T8_Emisiones':'Monitoreo de emisiones'}
+NUM={'Numero_tecnologias_8':'Tecnologías adoptadas','Flota_ord':'Tamaño de flota','Antiguedad_ord':'Antigüedad','Conocimiento_1a5':'Conocimiento','Costo_1a5':'Costos percibidos','Eficiencia_1a5':'Eficiencia percibida'}
+st.markdown('''<style>
+.stApp{background:#F5F8FA;color:#1D3A4D}.block-container{max-width:1480px;padding-top:1.1rem}h1,h2,h3{color:#173B55!important}
+section[data-testid="stSidebar"]{background:#173B55!important}
+section[data-testid="stSidebar"] h2,section[data-testid="stSidebar"] h3,section[data-testid="stSidebar"] label,section[data-testid="stSidebar"] p{color:#F4F8FB!important}
+section[data-testid="stSidebar"] [data-baseweb="select"]>div{background:#FFFFFF!important;border:1px solid #C3D6DF!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"],section[data-testid="stSidebar"] [data-baseweb="tag"]:hover,
+section[data-testid="stSidebar"] [data-baseweb="tag"][kind],section[data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="tag"]{background:#217C83!important;background-color:#217C83!important;border-color:#217C83!important;color:#FFFFFF!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"] *,section[data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="tag"] *{color:white!important;fill:white!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"],section[data-testid="stSidebar"] [data-testid="stFileUploader"] section{background:#E7F0F4!important;border:2px dashed #7DA8B6!important;border-radius:10px!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *{color:#23465C!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploader"] button{background:#217C83!important;color:white!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"]{background:#D8E8EE!important;border-radius:8px!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] *{color:#173B55!important}
+.stTabs [data-baseweb="tab-highlight"]{background-color:#217C83!important}
+.stTabs [data-baseweb="tab"]{color:#47677B!important}.stTabs [data-baseweb="tab"][aria-selected="true"]{color:#217C83!important;border-color:#217C83!important}
+button[kind="primary"],div[data-testid="stButton"] button[kind="primary"]{background:#217C83!important;border-color:#217C83!important}
+.kpi{border:1px solid #DDE7EC;border-top:4px solid #217C83;background:white;border-radius:11px;padding:14px 17px}.kpi small{color:#667F8C}.kpi b{display:block;font-size:27px;color:#173B55;margin-top:5px}
+</style>''',unsafe_allow_html=True)
 
-NAVY="#153D58"; TEAL="#087F8C"; BLUE="#3979A8"; CORAL="#C97765"
-GOLD="#C99C46"; SAGE="#75A995"; LAVENDER="#8C84B4"; GRAY="#8295A3"
-PLUM="#A26C8C"; CYAN="#4B9EAE"; OLIVE="#929D66"; SLATE="#59778C"
-PALETTE=[NAVY,TEAL,BLUE,CORAL,GOLD,SAGE,LAVENDER,PLUM,CYAN,OLIVE,SLATE,GRAY]
-TECH_PALETTE=[BLUE,TEAL,CYAN,SAGE,LAVENDER,PLUM,GOLD,CORAL]
-
-TECH={
-"T1_GPS":"GPS y rastreo",
-"T2_Rutas":"Software de rutas",
-"T3_IoT":"Sensores IoT",
-"T4_TMS_WMS":"Plataformas TMS/WMS",
-"T5_Apps":"Aplicaciones móviles",
-"T6_Mantenimiento":"Mantenimiento predictivo",
-"T7_Telemetria":"Telemetría",
-"T8_Emisiones":"Monitoreo de emisiones"
-}
-NUMERIC={
-"Numero_tecnologias_8":"Tecnologías adoptadas",
-"Flota_ord":"Tamaño de flota (ordinal)",
-"Antiguedad_ord":"Antigüedad (ordinal)",
-"Educacion_ord":"Educación (ordinal)",
-"Capacitacion_01":"Capacitación (0/1)",
-"Conocimiento_1a5":"Conocimiento (1–5)",
-"Costo_1a5":"Costo percibido (1–5)",
-"Incentivos_01":"Apoyos (0/1)",
-"Eficiencia_1a5":"Eficiencia percibida (1–5)"
-}
-st.markdown("""
-<style>
-.stApp{background:#F6F8FB;color:#1B3448}
-.block-container{max-width:1480px;padding-top:1.3rem}
-h1,h2,h3{color:#153D58!important;letter-spacing:-.025em}
-h1{font-size:1.9rem!important}
-section[data-testid="stSidebar"]{background:#153D58}
-section[data-testid="stSidebar"] *{color:#F2F7FA!important}
-section[data-testid="stSidebar"] [data-baseweb="select"] *{color:#17384D!important}
-div[data-testid="stTabs"] button{font-weight:650;font-size:.88rem}
-div[data-testid="stTabs"] button[aria-selected="true"]{color:#087F8C!important}
-.metric{background:white;border:1px solid #E0E8EE;border-top:4px solid #087F8C;border-radius:10px;
-padding:15px 17px;min-height:110px}
-.metric .label{font-size:.82rem;color:#5C6F7D;font-weight:600}
-.metric .value{font-size:1.9rem;color:#153D58;font-weight:750;margin:6px 0 0}
-.metric .foot{font-size:.75rem;color:#758695}
-div[data-testid="stVerticalBlockBorderWrapper"]>div{border-radius:11px!important}
-
-/* Filtros: azul petróleo en lugar de rojo */
-section[data-testid="stSidebar"] [data-baseweb="tag"]{
- background:#276B7A!important;border:1px solid #276B7A!important;border-radius:6px!important;
-}
-section[data-testid="stSidebar"] [data-baseweb="tag"] span,
-section[data-testid="stSidebar"] [data-baseweb="tag"] div,
-section[data-testid="stSidebar"] [data-baseweb="tag"] svg{
- color:#FFFFFF!important;fill:#FFFFFF!important;
-}
-section[data-testid="stSidebar"] [data-baseweb="select"] > div{
- background:#FFFFFF!important;border:1px solid #C9D8E2!important;border-radius:9px!important;
-}
-section[data-testid="stSidebar"] [data-baseweb="select"] input{
- color:#153D58!important;
-}
-/* Zona de carga: contraste y legibilidad */
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] section,
-section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]{
- background:#EAF2F7!important;border:2px dashed #86A9BD!important;border-radius:10px!important;
-}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *,
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] small,
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] p{
- color:#23475E!important;
-}
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] button{
- background:#276B7A!important;color:#FFFFFF!important;border:1px solid #276B7A!important;
-}
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] button *{color:#FFFFFF!important;}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"]{
- background:#DCEAF2!important;border-radius:8px!important;
-}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] *{color:#153D58!important;}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] button{
- background:transparent!important;border:none!important;
-}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] button *{color:#153D58!important;}
-/* Botones y selección de pestañas: mismo lenguaje visual */
-div[data-testid="stTabs"] button[aria-selected="true"]{
- color:#087F8C!important;border-bottom-color:#087F8C!important;
-}
-
-</style>
-""",unsafe_allow_html=True)
-
-def normalize(v):
-    if pd.isna(v):return "Sin respuesta"
-    s=re.sub(r"\s+"," ",str(v)).strip()
-    return s if s else "Sin respuesta"
+def norm(x):
+    if pd.isna(x):return 'Sin respuesta'
+    s=re.sub(r'\s+',' ',str(x)).strip()
+    return s or 'Sin respuesta'
 
 @st.cache_data
-def parse_excel(raw):
-    return pd.read_excel(io.BytesIO(raw),sheet_name=None)
+def read_book(raw):return pd.read_excel(io.BytesIO(raw),sheet_name=None)
 
-def derive_from_original(book):
-    for name,frame in book.items():
-        q={}
-        for c in frame.columns:
-            m=re.search(r"Pregunta\s*(\d+)\s*:",str(c),re.I)
-            if m:q[int(m.group(1))]=c
-        if len(q)<10:continue
-        d=pd.DataFrame(index=frame.index)
-        d["ID"]=np.arange(1,len(frame)+1)
-        for i in range(1,12):
-            d[f"P{i}"]=frame[q[i]] if i in q else np.nan
-        d["Flota_cat"]=d["P1"].map(normalize)
-        d["Antiguedad_cat"]=d["P2"].map(normalize)
-        d["Tipo_carga"]=d["P3"].map(normalize)
-        d["Educacion_cat"]=d["P6"].map(normalize)
-        d["Conocimiento_cat"]=d["P8"].map(normalize)
-        d["Flota_ord"]=d["Flota_cat"].map({"1-5":1,"6-15":2,"16-30":3,"Más de 30":4})
-        d["Antiguedad_ord"]=d["Antiguedad_cat"].map({"Menos de 1 año":1,"1-5 años":2,"De 6 a 10 años":3,"6-10 años":3,"Más de 10 años":4})
-        d["Educacion_ord"]=d["Educacion_cat"].map({"Primaria":1,"Secundaria":2,"Técnico o tecnólogo":3,"Técnico/Tecnólogo":3,"Profesional":4,"Posgrado":5})
-        d["Capacitacion_01"]=d["P7"].map(lambda x: 1 if normalize(x).casefold() in ("sí","si") else (0 if normalize(x).casefold()=="no" else np.nan))
-        d["Incentivos_01"]=d["P10"].map(lambda x: 1 if normalize(x).casefold() in ("sí","si") else (0 if normalize(x).casefold()=="no" else np.nan))
-        d["Conocimiento_1a5"]=d["Conocimiento_cat"].map({"Muy bajo":1,"Bajo":2,"Medio":3,"Alto":4,"Muy alto":5})
-        d["Costo_1a5"]=pd.to_numeric(d["P9"],errors="coerce")
-        d["Eficiencia_1a5"]=pd.to_numeric(d["P11"],errors="coerce")
-        s=d["P4"].fillna("").astype(str)
-        phrases=["GPS y rastreo en tiempo real","Software de gestión de rutas",
-                 "Sensores IoT en vehículos","Plataformas de gestión logística (TMS, WMS)",
-                 "Aplicaciones móviles para conductores","Sistemas de mantenimiento predictivo",
-                 "Telemetría avanzada","Tecnología de monitoreo de emisiones"]
-        for col,phrase in zip(TECH,phrases):
-            d[col]=s.str.contains(re.escape(phrase),case=False,regex=True).astype(int)
-        d["Numero_tecnologias_8"]=d[list(TECH)].sum(axis=1)
-        d["Otras_texto"]=d["P5"]
-        d["Tecnologias_originales"]=d["P4"]
-        return d,name
-    return None,None
-
-def get_data(book):
-    if "Base_modelo" in book and set(TECH).issubset(book["Base_modelo"].columns):
-        d=book["Base_modelo"].copy()
-        if "Respuestas_originales" in book:
-            r=book["Respuestas_originales"]
+def read_data(book):
+    if 'Base_modelo' in book:
+        d=book['Base_modelo'].copy()
+        if 'Respuestas_originales' in book and len(book['Respuestas_originales'])==len(d):
+            original=book['Respuestas_originales']
+            for col in original.columns:
+                m=re.search(r'Pregunta\s*(\d+)\s*:',str(col),re.I)
+                if m:d['P'+m.group(1)]=original[col].to_numpy()
+    else:
+        d=None
+        for raw in book.values():
             q={}
-            for c in r.columns:
-                m=re.search(r"Pregunta\s*(\d+)\s*:",str(c),re.I)
-                if m:q[int(m.group(1))]=c
-            if len(r)==len(d):
-                for i,c in q.items():d[f"P{i}"]=r[c].to_numpy()
-        for i in range(1,12):
-            if f"P{i}" not in d:d[f"P{i}"]=np.nan
-        return d,"Base_modelo + Respuestas_originales"
-    return derive_from_original(book)
+            for col in raw.columns:
+                m=re.search(r'Pregunta\s*(\d+)\s*:',str(col),re.I)
+                if m:q[int(m.group(1))]=col
+            if len(q)<10:continue
+            d=pd.DataFrame(index=raw.index)
+            for i in range(1,12):d['P'+str(i)]=raw[q[i]] if i in q else np.nan
+            d['Flota_cat']=d['P1'].map(norm);d['Antiguedad_cat']=d['P2'].map(norm);d['Tipo_carga']=d['P3'].map(norm)
+            d['Educacion_cat']=d['P6'].map(norm);d['Conocimiento_cat']=d['P8'].map(norm)
+            d['Flota_ord']=d['Flota_cat'].map({'1-5':1,'6-15':2,'16-30':3,'Más de 30':4})
+            d['Antiguedad_ord']=d['Antiguedad_cat'].map({'Menos de 1 año':1,'1-5 años':2,'De 6 a 10 años':3,'6-10 años':3,'Más de 10 años':4})
+            d['Educacion_ord']=d['Educacion_cat'].map({'Primaria':1,'Secundaria':2,'Técnico o tecnólogo':3,'Técnico/Tecnólogo':3,'Profesional':4,'Posgrado':5})
+            yes=lambda v: 1 if norm(v).lower() in ['sí','si'] else (0 if norm(v).lower()=='no' else np.nan)
+            d['Capacitacion_01']=d['P7'].map(yes);d['Incentivos_01']=d['P10'].map(yes)
+            d['Conocimiento_1a5']=d['Conocimiento_cat'].map({'Muy bajo':1,'Bajo':2,'Medio':3,'Alto':4,'Muy alto':5})
+            d['Costo_1a5']=pd.to_numeric(d['P9'],errors='coerce');d['Eficiencia_1a5']=pd.to_numeric(d['P11'],errors='coerce')
+            phrases=['GPS y rastreo en tiempo real','Software de gestión de rutas','Sensores IoT en vehículos','Plataformas de gestión logística (TMS, WMS)','Aplicaciones móviles para conductores','Sistemas de mantenimiento predictivo','Telemetría avanzada','Tecnología de monitoreo de emisiones']
+            for key,phrase in zip(TECH,phrases):d[key]=d['P4'].fillna('').astype(str).str.contains(re.escape(phrase),case=False).astype(int)
+            d['Numero_tecnologias_8']=d[list(TECH)].sum(axis=1)
+            d['Otras_texto']=d['P5']
+            break
+    if d is None:return None
+    for i in range(1,12):
+        if 'P'+str(i) not in d:d['P'+str(i)]=np.nan
+    required=['Flota_cat','Tipo_carga','Educacion_cat','Capacitacion_01','Flota_ord','Numero_tecnologias_8']+list(TECH)
+    missing=[c for c in required if c not in d]
+    if missing:raise ValueError('Faltan columnas: '+', '.join(missing))
+    for c in list(TECH)+['Numero_tecnologias_8','Flota_ord','Capacitacion_01','Incentivos_01','Conocimiento_1a5','Costo_1a5','Eficiencia_1a5','Antiguedad_ord']:
+        if c in d:d[c]=pd.to_numeric(d[c],errors='coerce')
+    return d
 
-def base_plot(fig,height=315):
-    fig.update_layout(height=height,margin=dict(l=12,r=22,t=22,b=32),font=dict(family="Arial",size=12,color="#28445A"),
-                      paper_bgcolor="white",plot_bgcolor="white",legend=dict(orientation="h",y=-.22))
-    fig.update_xaxes(showgrid=False,linecolor="#DDE5EA")
-    fig.update_yaxes(gridcolor="#EDF1F5",zeroline=False)
-    return fig
-
-def panel(title,fig,key,caption=None,height=315):
+def graph(fig,title,key,caption='',height=355):
     with st.container(border=True):
-        st.markdown(f"**{title}**")
+        st.markdown('**'+title+'**')
         if caption:st.caption(caption)
-        st.plotly_chart(base_plot(fig,height),use_container_width=True,key=key,
-                        config={"displaylogo":False,"toImageButtonOptions":{"format":"png","scale":3}})
+        fig.update_layout(height=height,margin=dict(l=10,r=25,t=12,b=40),paper_bgcolor='white',plot_bgcolor='white',font=dict(color='#31556A',size=12),legend=dict(orientation='h',y=-.22))
+        fig.update_xaxes(gridcolor='#E9EFF3',zeroline=False)
+        fig.update_yaxes(gridcolor='#E9EFF3',zeroline=False)
+        st.plotly_chart(fig,use_container_width=True,key=key,config={'displaylogo':False,'toImageButtonOptions':{'format':'png','scale':3}})
 
-def cat_counts(s):
-    x=s.map(normalize)
-    x=x[x!="Sin respuesta"]
-    z=x.value_counts().rename_axis("Categoría").reset_index(name="n")
-    z["%"]=100*z["n"]/max(len(x),1)
-    return z
+def kpi(title,value,desc):
+    st.markdown(f'<div class="kpi"><small>{html.escape(title)}</small><b>{html.escape(str(value))}</b><small>{html.escape(desc)}</small></div>',unsafe_allow_html=True)
 
-def categorical(df,col,title,key,horizontal=False):
-    z=cat_counts(df[col])
-    if z.empty:st.info(f"Sin datos: {title}");return
-    colors=[PALETTE[i%len(PALETTE)] for i in range(len(z))]
-    if horizontal:
-        z=z.iloc[::-1]
-        colors=colors[::-1]
-        fig=go.Figure(go.Bar(x=z["%"],y=z["Categoría"],orientation="h",marker_color=colors,
-                             text=z["%"].map(lambda x:f"{x:.1f}%"),textposition="outside"))
-        fig.update_xaxes(title="% de respuestas",range=[0,max(105,z["%"].max()*1.16)])
-        fig.update_yaxes(automargin=True)
-    else:
-        fig=go.Figure(go.Bar(x=z["Categoría"],y=z["%"],marker_color=colors,
-                             text=z["%"].map(lambda x:f"{x:.1f}%"),textposition="outside"))
-        fig.update_yaxes(title="% de respuestas",range=[0,max(105,z["%"].max()*1.16)])
-        fig.update_xaxes(tickangle=-15,automargin=True)
-    panel(title,fig,key,height=max(300,48*len(z)) if horizontal else 315)
+def counts(s):
+    x=s.map(norm);x=x[x!='Sin respuesta'];return x.value_counts()
 
-def donut(df,col,title,key):
-    z=cat_counts(df[col])
-    if z.empty:st.info(f"Sin datos: {title}");return
-    fig=go.Figure(go.Pie(labels=z["Categoría"],values=z["n"],hole=.63,
-                         marker_colors=PALETTE[:len(z)],textinfo="percent",sort=False))
-    fig.update_layout(showlegend=True,annotations=[dict(text=f"<b>{int(z['n'].sum())}</b><br>respuestas",
-                                                         showarrow=False,font=dict(size=13,color=NAVY))])
-    panel(title,fig,key,height=325)
+def spearman(x,y):
+    sub=pd.DataFrame({'x':x,'y':y}).apply(pd.to_numeric,errors='coerce').dropna()
+    if len(sub)<4 or sub.x.nunique()<2 or sub.y.nunique()<2:return np.nan
+    return float(np.corrcoef(sub.x.rank(method='average'),sub.y.rank(method='average'))[0,1])
 
-def tech_chart(df,key):
-    n=len(df)
-    z=pd.DataFrame({"Tecnología":list(TECH.values()),"n":[int(df[c].sum()) for c in TECH]})
-    z["%"]=100*z["n"]/max(1,n)
-    z=z.sort_values("%",ascending=True)
-    fig=go.Figure(go.Bar(x=z["%"],y=z["Tecnología"],orientation="h",
-                         marker_color=[TECH_PALETTE[list(TECH.values()).index(t)] for t in z["Tecnología"]],
-                         text=z["%"].map(lambda x:f"{x:.1f}%"),textposition="outside",
-                         customdata=z["n"],hovertemplate="%{y}<br>%{x:.1f}% · %{customdata} empresas<extra></extra>"))
-    fig.update_xaxes(title="% de empresas",range=[0,max(105,z["%"].max()*1.15)])
-    fig.update_yaxes(automargin=True)
-    panel("P4 · Tecnologías implementadas",fig,key,
-          "Respuesta múltiple. El denominador es el total de empresas filtradas.",height=410)
-
-def likert(df,key):
-    a=pd.to_numeric(df["Costo_1a5"],errors="coerce").dropna()
-    b=pd.to_numeric(df["Eficiencia_1a5"],errors="coerce").dropna()
-    fig=go.Figure()
-    palette=["#B86773","#DB9A7B","#BFCAD2","#75B4A3","#087F8C"]
-    for score in range(1,6):
-        fig.add_trace(go.Bar(y=["Costos percibidos","Eficiencia percibida"],
-                             x=[100*(a==score).mean() if len(a) else 0,
-                                100*(b==score).mean() if len(b) else 0],
-                             name=str(score),orientation="h",marker_color=palette[score-1],
-                             text=[f"{100*(a==score).mean():.0f}%" if len(a) and (a==score).mean()>.06 else "",
-                                   f"{100*(b==score).mean():.0f}%" if len(b) and (b==score).mean()>.06 else ""],
-                             textposition="inside"))
-    fig.update_layout(barmode="stack",legend_title_text="Escala",xaxis_title="% de respuestas")
-    panel("Distribución de respuestas en escalas 1–5",fig,key,
-          "Barras apiladas: 1 representa el extremo inferior y 5 el superior en cada pregunta.",height=300)
-
-def metric(label,value,foot):
-    st.markdown(f'<div class="metric"><div class="label">{html.escape(str(label))}</div>'
-                f'<div class="value">{html.escape(str(value))}</div>'
-                f'<div class="foot">{html.escape(str(foot))}</div></div>',unsafe_allow_html=True)
-
-def spearman_table(df,cols):
-    records=[]
-    for i,a in enumerate(cols):
-        for b in cols[i+1:]:
-            sub=df[[a,b]].apply(pd.to_numeric,errors="coerce").dropna()
-            if len(sub)<5 or sub[a].nunique()<2 or sub[b].nunique()<2:continue
-            # Spearman = correlación de Pearson entre rangos promediados para empates.
-            # No utilizar method="spearman": Pandas importa scipy internamente.
-            rank_a=sub[a].rank(method="average").to_numpy(dtype=float)
-            rank_b=sub[b].rank(method="average").to_numpy(dtype=float)
-            rho=float(np.corrcoef(rank_a,rank_b)[0,1])
-            if np.isfinite(rho):
-                records.append({"Variable A":NUMERIC[a],"Variable B":NUMERIC[b],
-                                "rho":float(rho),"n":len(sub)})
-    return pd.DataFrame(records)
-
-
-def corr_heatmap(df,cols,key):
-    pairs=spearman_table(df,cols)
-    if pairs.empty:st.info("No hay variación suficiente para calcular correlaciones.");return
-    names=[NUMERIC[c] for c in cols]
-    matrix=pd.DataFrame(np.nan,index=names,columns=names)
-    for n in names:matrix.loc[n,n]=1.
-    for _,r in pairs.iterrows():
-        matrix.loc[r["Variable A"],r["Variable B"]]=r["rho"]
-        matrix.loc[r["Variable B"],r["Variable A"]]=r["rho"]
-    fig=go.Figure(go.Heatmap(z=matrix.to_numpy(dtype=float),x=names,y=names,zmin=-1,zmax=1,zmid=0,
-                             colorscale=[[0,"#C36C70"],[.5,"#F6F8FA"],[1,"#087F8C"]],
-                             text=[[f"{v:.2f}" if np.isfinite(v) else "" for v in row]
-                                   for row in matrix.to_numpy(dtype=float)],
-                             texttemplate="%{text}",textfont=dict(size=11),colorbar=dict(title="ρ")))
-    fig.update_xaxes(tickangle=-35,automargin=True)
-    fig.update_yaxes(autorange="reversed",automargin=True)
-    panel("Matriz de correlación de Spearman",fig,key,
-          "Coeficientes descriptivos. Las variables binarias u ordinales requieren interpretación contextual.",height=530)
-    st.dataframe(pairs.assign(rho=pairs.rho.round(3)),hide_index=True,use_container_width=True)
-
-def box_compare(df,group,key):
-    sub=df[[group,"Numero_tecnologias_8"]].dropna().copy()
-    if group in ["Capacitacion_01","Incentivos_01"]:
-        sub[group]=sub[group].map({0:"No",1:"Sí"})
-    if sub[group].nunique()<2:st.info("No hay dos grupos para comparar.");return
-    fig=px.box(sub,x=group,y="Numero_tecnologias_8",points="all",color=group,
-               color_discrete_sequence=[TEAL,BLUE,CORAL,GOLD,SAGE])
-    fig.update_layout(showlegend=False)
-    fig.update_xaxes(title=NUMERIC.get(group,group))
-    fig.update_yaxes(title="Número de tecnologías (0–8)")
-    panel("Tecnologías adoptadas según "+NUMERIC.get(group,group).lower(),fig,key,
-          "Cada punto representa una empresa.",height=355)
-
-def group_test(df,group):
-    sub=df[[group,"Numero_tecnologias_8"]].dropna()
-    groups=[x["Numero_tecnologias_8"].to_numpy(dtype=float) for _,x in sub.groupby(group)]
-    if len(groups)<2 or any(len(x)==0 for x in groups):return None
-    # Prueba exploratoria de permutación sin dependencias adicionales.
-    values=np.concatenate(groups)
-    sizes=[len(x) for x in groups]
-    if len(groups)==2:
-        statistic=float(abs(np.mean(groups[0])-np.mean(groups[1])))
-        label="Permutación: diferencia absoluta de medias"
-        def calc(arr):
-            return abs(float(arr[:sizes[0]].mean()-arr[sizes[0]:].mean()))
-    else:
-        statistic=float(np.var([np.mean(x) for x in groups]))
-        label="Permutación: variación entre medias"
-        def calc(arr):
-            ix=np.cumsum(sizes)[:-1]
-            return float(np.var([np.mean(x) for x in np.split(arr,ix)]))
-    rng=np.random.default_rng(2026)
-    reps=4999
-    extreme=sum(calc(rng.permutation(values))>=statistic-1e-12 for _ in range(reps))
-    p=(extreme+1)/(reps+1)
-    return label,statistic,float(p),sizes
-
-
-def adoption_efficiency(df,key):
-    sub=df[["Numero_tecnologias_8","Eficiencia_1a5"]].apply(pd.to_numeric,errors="coerce").dropna()
-    if sub.empty:
-        st.info("No hay datos completos para esta comparación.");return
-    freq=sub.groupby(["Numero_tecnologias_8","Eficiencia_1a5"]).size().reset_index(name="Empresas")
-    fig=px.scatter(freq,x="Numero_tecnologias_8",y="Eficiencia_1a5",
-                   size="Empresas",color="Empresas",size_max=36,
-                   color_continuous_scale=["#B4D6D5",TEAL,NAVY],
-                   labels={"Numero_tecnologias_8":"Número de tecnologías (0–8)",
-                           "Eficiencia_1a5":"Eficiencia percibida (1–5)"})
-    fig.update_xaxes(dtick=1,range=[-0.5,8.5])
-    fig.update_yaxes(dtick=1,range=[0.5,5.5])
-    fig.update_layout(coloraxis_showscale=False)
-    pairs=spearman_table(sub,["Numero_tecnologias_8","Eficiencia_1a5"])
-    detail=(f"rho de Spearman = {pairs.iloc[0]['rho']:.3f}" if not pairs.empty
-            else "sin variación suficiente para calcular rho")
-    panel("Adopción tecnológica y eficiencia percibida",fig,key,
-          f"n={len(sub)}; {detail}. El tamaño del círculo representa empresas. "
-          "Asociación descriptiva, no causal.",height=380)
-    st.caption("La eficiencia es percibida y no una medición objetiva de productividad.")
-
-def adoption_by_fleet(df,key):
-    sub=df[["Flota_cat","Numero_tecnologias_8"]].dropna()
-    if sub.empty:
-        st.info("No hay datos suficientes para comparar flotas.");return
-    summary=(sub.groupby("Flota_cat")["Numero_tecnologias_8"]
-             .agg(Empresas="count",Promedio="mean",Mediana="median")
-             .reset_index().sort_values("Promedio"))
-    fig=go.Figure(go.Bar(
-        y=summary["Flota_cat"],x=summary["Promedio"],orientation="h",
-        marker_color=[PALETTE[i%len(PALETTE)] for i in range(len(summary))],
-        text=[f"{v:.2f} (n={n})" for v,n in zip(summary["Promedio"],summary["Empresas"])],
-        textposition="outside"))
-    fig.update_xaxes(title="Promedio de tecnologías adoptadas",range=[0,9])
-    fig.update_yaxes(title="")
-    panel("Adopción tecnológica por tamaño de flota",fig,key,
-          "Comparación descriptiva de promedios, indicando tamaños de grupo.",height=340)
-    st.dataframe(summary.round(2),hide_index=True,use_container_width=True)
-
-
+def glm_binomial(y,flota,trials=8):
+    """IRLS ML for grouped Binomial(8,p), single ordinal covariate."""
+    a=pd.DataFrame({'y':y,'x':flota}).apply(pd.to_numeric,errors='coerce').dropna()
+    a=a[(a.y>=0)&(a.y<=trials)&(a.y.round()==a.y)]
+    if len(a)<8 or a.x.nunique()<2:return None
+    X=np.column_stack([np.ones(len(a)),a.x.to_numpy(float)])
+    yy=a.y.to_numpy(float)
+    beta=np.array([math.log(max(.001,min(.999,yy.sum()/(trials*len(yy))))/(1-max(.001,min(.999,yy.sum()/(trials*len(yy)))))),0.])
+    def ll(b):
+        eta=np.clip(X@b,-30,30)
+        return float(np.sum(yy*eta-trials*np.logaddexp(0,eta)+np.array([math.lgamma(trials+1)-math.lgamma(k+1)-math.lgamma(trials-k+1) for k in yy])))
+    converged=False
+    for it in range(200):
+        eta=np.clip(X@beta,-30,30)
+        p=1/(1+np.exp(-eta))
+        w=np.maximum(trials*p*(1-p),1e-10)
+        info=X.T@(w[:,None]*X)
+        grad=X.T@(yy-trials*p)
+        try:step=np.linalg.solve(info,grad)
+        except np.linalg.LinAlgError:return None
+        current=ll(beta);fraction=1.
+        while fraction>1e-7 and ll(beta+fraction*step)<current-1e-9:fraction/=2
+        updated=beta+fraction*step
+        if np.max(np.abs(updated-beta))<1e-10:
+            beta=updated;converged=True;break
+        beta=updated
+    if not converged:return None
+    eta=np.clip(X@beta,-30,30);p=1/(1+np.exp(-eta))
+    info=X.T@((trials*p*(1-p))[:,None]*X)
+    try:cov=np.linalg.inv(info)
+    except np.linalg.LinAlgError:return None
+    se=np.sqrt(np.diag(cov));z=beta[1]/se[1];pv=math.erfc(abs(z)/math.sqrt(2))
+    b0=math.log(np.clip(yy.sum()/(trials*len(yy)),1e-9,1-1e-9)/np.clip(1-yy.sum()/(trials*len(yy)),1e-9,1))
+    lr=2*(ll(beta)-ll(np.array([b0,0.])))
+    pearson=float(np.sum((yy-trials*p)**2/np.maximum(trials*p*(1-p),1e-10)))/(len(a)-2)
+    return dict(beta=beta,se=se,pvalue=pv,odds=np.exp(beta[1]),ci=np.exp(beta[1]+np.array([-1.96,1.96])*se[1]),n=len(a),ll=ll(beta),aic=4-2*ll(beta),lr=lr,disp=pearson,frame=a)
 
 with st.sidebar:
-    st.markdown("## Transporte de carga")
-    st.caption("Análisis estadístico de adopción tecnológica")
-    upload=st.file_uploader("Cargar base Excel",type=["xlsx"])
-    st.caption("Recomendado: Base_limpia_regresion_transporte_carga.xlsx, que incluye las respuestas originales.")
-st.title("Adopción tecnológica en empresas de transporte de carga")
-st.caption("Dashboard académico · Estadística descriptiva, asociaciones y análisis exploratorio")
-
-if upload is None:
-    st.info("Cargue el archivo **Base_limpia_regresion_transporte_carga.xlsx** en el panel izquierdo. "
-            "El dashboard no almacena los datos en GitHub.")
-    st.stop()
-try:
-    d,origin=get_data(parse_excel(upload.getvalue()))
-    if d is None:st.error("No se identificó una hoja Base_modelo ni las 11 preguntas originales.");st.stop()
-    needed=["Flota_cat","Tipo_carga","Educacion_cat","Capacitacion_01",
-            "Costo_1a5","Eficiencia_1a5","Numero_tecnologias_8"]+list(TECH)
-    missing=[c for c in needed if c not in d.columns]
-    if missing:
-        st.error("La base no contiene las variables requeridas: "+", ".join(missing))
-        st.stop()
-    for c in list(TECH)+["Numero_tecnologias_8","Capacitacion_01","Incentivos_01",
-                         "Flota_ord","Antiguedad_ord","Conocimiento_1a5","Costo_1a5","Eficiencia_1a5"]:
-        if c in d.columns:d[c]=pd.to_numeric(d[c],errors="coerce")
-    if d["Numero_tecnologias_8"].isna().all():
-        d["Numero_tecnologias_8"]=d[list(TECH)].sum(axis=1)
-except Exception as e:
-    st.error(f"No se pudo leer el archivo: {e}");st.stop()
-
+    st.markdown('## Transporte de carga')
+    st.caption('Evidencia empírica · Adopción tecnológica')
+    file=st.file_uploader('Cargar base Excel',type=['xlsx'])
+    st.caption('La base se procesa durante la sesión; no la publique en GitHub.')
+st.title('Adopción tecnológica en empresas de transporte de carga')
+st.caption('Dashboard científico | Estudio transversal · muestra no probabilística')
+if file is None:
+    st.info('Cargue la base limpia de la encuesta en el panel izquierdo para activar los análisis.');st.stop()
+try:d=read_data(read_book(file.getvalue()))
+except Exception as exc:st.error('No fue posible interpretar la base: '+str(exc));st.stop()
+if d is None:st.error('No se encontró una hoja Base_modelo ni las preguntas originales.');st.stop()
 with st.sidebar:
-    st.success(f"Datos: {origin}")
-    st.markdown("### Filtros")
-    for c,label in [("Flota_cat","Tamaño de flota"),("Tipo_carga","Tipo de carga"),
-                    ("Educacion_cat","Nivel educativo"),("Capacitacion_01","Capacitación")]:
-        opts=sorted(d[c].dropna().unique().tolist(),key=str)
-        if c=="Capacitacion_01":
-            chosen=st.multiselect(label,opts,default=opts,format_func=lambda x:"Sí" if x==1 else "No")
-        else:chosen=st.multiselect(label,opts,default=opts)
-        d=d[d[c].isin(chosen)]
-    st.caption(f"Empresas seleccionadas: {len(d)}")
-if d.empty:st.warning("Los filtros no dejan empresas para analizar.");st.stop()
-
-k1,k2,k3,k4=st.columns(4)
-with k1:metric("Empresas",len(d),"Muestra seleccionada")
-with k2:metric("Tecnologías por empresa",f"{d['Numero_tecnologias_8'].mean():.2f}","Media de 8 tecnologías")
-with k3:metric("Empresas capacitadas",f"{100*d['Capacitacion_01'].mean():.1f}%","P7 · Sí")
-with k4:metric("Eficiencia percibida",f"{d['Eficiencia_1a5'].mean():.2f}/5","P11 · Promedio")
-tabs=st.tabs(["Panorama","Empresas","Tecnologías","Capital humano","Costos y eficiencia",
-              "Análisis estadístico","Datos"])
+    st.success('Base reconocida')
+    st.markdown('### Filtros')
+    for col,name in [('Flota_cat','Tamaño de flota'),('Tipo_carga','Tipo de carga'),('Educacion_cat','Nivel educativo'),('Capacitacion_01','Capacitación')]:
+        opts=sorted(d[col].dropna().unique().tolist(),key=str)
+        selected=st.multiselect(name,opts,default=opts,format_func=(lambda x:'Sí' if x==1 else 'No') if col=='Capacitacion_01' else None)
+        d=d[d[col].isin(selected)]
+    st.caption(f'Empresas seleccionadas: {len(d)}')
+if d.empty:st.warning('No hay empresas con estos filtros.');st.stop()
+cols=st.columns(4)
+with cols[0]:kpi('Empresas',len(d),'Muestra filtrada')
+with cols[1]:kpi('Adopción media',f"{d.Numero_tecnologias_8.mean():.2f}/8",'Tecnologías por empresa')
+with cols[2]:kpi('Con capacitación',f"{100*d.Capacitacion_01.mean():.1f}%",'Respuestas válidas')
+with cols[3]:kpi('Eficiencia percibida',f"{d.Eficiencia_1a5.mean():.2f}/5",'Escala ordinal')
+tabs=st.tabs(['Síntesis','Perfil empresarial','Mapa tecnológico','Capacidades','Percepciones','Regresión binomial (GLM)','Datos'])
 with tabs[0]:
-    a,b=st.columns([1.25,1])
-    with a:tech_chart(d,"pan_tech")
-    with b:donut(d,"P3","P3 · Tipo de carga","pan_cargo")
-    a,b=st.columns(2)
-    with a:categorical(d,"P1","P1 · Tamaño de flota","pan_fleet")
-    with b:donut(d,"P7","P7 · Capacitación","pan_training")
-    likert(d,"pan_likert")
+    st.subheader('Panorama de adopción tecnológica')
+    c1,c2=st.columns([1.2,1])
+    with c1:
+        z=pd.DataFrame({'Tecnología':list(TECH.values()),'Empresas':[int(d[c].sum()) for c in TECH]})
+        z=z.sort_values('Empresas')
+        fig=go.Figure(go.Bar(x=100*z.Empresas/len(d),y=z.Tecnología,orientation='h',marker_color=[COLORS[list(TECH.values()).index(x)%len(COLORS)] for x in z.Tecnología],text=[f'{v}/{len(d)}' for v in z.Empresas],textposition='outside'))
+        fig.update_xaxes(title='% de empresas',range=[0,115]);graph(fig,'Tecnologías más utilizadas','overview_tech','Respuesta múltiple: los porcentajes no suman 100 %.',410)
+    with c2:
+        hist=d.Numero_tecnologias_8.value_counts().reindex(range(9),fill_value=0)
+        fig=go.Figure(go.Bar(x=hist.index,y=hist.values,marker_color=TEAL,text=hist.values,textposition='outside'))
+        fig.update_xaxes(dtick=1,title='Número de tecnologías (0–8)');fig.update_yaxes(title='Empresas')
+        graph(fig,'Distribución de intensidad tecnológica','overview_dist','Número de tecnologías distintas implementadas por empresa.',410)
+    st.caption('Lectura: describa qué tecnologías predominan y cuántas adopta cada empresa. No se infieren impactos ambientales medidos.')
 with tabs[1]:
-    a,b=st.columns(2)
-    with a:categorical(d,"P1","P1 · Vehículos operativos","emp_fleet")
-    with b:donut(d,"P2","P2 · Antigüedad de la empresa","emp_age")
-    categorical(d,"P3","P3 · Tipo de carga","emp_cargo",horizontal=True)
+    st.subheader('Caracterización de las empresas')
+    c1,c2=st.columns(2)
+    with c1:
+        z=counts(d.P1 if d.P1.notna().any() else d.Flota_cat)
+        fig=go.Figure(go.Bar(y=z.index[::-1],x=z.values[::-1],orientation='h',marker_color=BLUE,text=z.values[::-1],textposition='outside'))
+        fig.update_xaxes(title='Empresas');graph(fig,'Tamaño de flota','profile_fleet','Frecuencias absolutas.',345)
+    with c2:
+        z=counts(d.P2 if d.P2.notna().any() else d.Antiguedad_cat)
+        fig=go.Figure(go.Pie(labels=z.index,values=z.values,hole=.62,marker_colors=COLORS,textinfo='percent'))
+        graph(fig,'Antigüedad empresarial','profile_age','Distribución de la muestra.',345)
+    z=counts(d.P3 if d.P3.notna().any() else d.Tipo_carga)
+    fig=go.Figure(go.Treemap(labels=list(z.index),parents=['']*len(z),values=list(z.values),marker_colors=COLORS[:len(z)],textinfo='label+value+percent root'))
+    graph(fig,'Composición por tipo de carga','profile_cargo','El área de cada rectángulo representa el número de empresas.',335)
 with tabs[2]:
-    tech_chart(d,"technology_full")
-    st.markdown("**P5 · Otras tecnologías reportadas**")
-    p5=d["P5"].map(normalize)
-    p5=p5[~p5.str.casefold().isin(["sin respuesta","no","ninguna","ninguno","n/a","no aplica"])]
-    if p5.empty:st.info("No hay respuestas abiertas adicionales registradas.")
-    else:st.dataframe(p5.value_counts().rename_axis("Respuesta").reset_index(name="Menciones"),
-                      hide_index=True,use_container_width=True)
-    tech_counts=d["Numero_tecnologias_8"].value_counts().reindex(range(9),fill_value=0)
-    fig=go.Figure(go.Bar(x=tech_counts.index,y=tech_counts.values,
-                         marker_color=[PALETTE[i%len(PALETTE)] for i in range(len(tech_counts))],
-                         text=tech_counts.values,textposition="outside"))
-    fig.update_xaxes(dtick=1,title="Número de tecnologías adoptadas")
-    fig.update_yaxes(title="Empresas")
-    panel("Intensidad de adopción tecnológica",fig,"tech_intensity")
+    st.subheader('Estructura y combinación de tecnologías')
+    mat=d[list(TECH)].fillna(0).gt(0).astype(int)
+    co=mat.T.dot(mat)
+    fig=go.Figure(go.Heatmap(z=co.to_numpy(),x=list(TECH.values()),y=list(TECH.values()),colorscale=[[0,'#EFF5F7'],[.5,'#A2C9C7'],[1,TEAL]],text=co.to_numpy(),texttemplate='%{text}',colorbar=dict(title='Empresas')))
+    fig.update_xaxes(tickangle=-35,automargin=True);fig.update_yaxes(autorange='reversed')
+    graph(fig,'Matriz de coadopción tecnológica','technology_co','Cada celda muestra empresas que implementaron simultáneamente dos tecnologías; la diagonal representa frecuencias.',535)
+    patterns=mat.apply(lambda row:', '.join([TECH[c] for c in TECH if row[c]]) or 'Ninguna',axis=1).value_counts().head(8)
+    st.markdown('**Combinaciones tecnológicas más frecuentes**')
+    st.dataframe(pd.DataFrame({'Combinación':patterns.index,'Empresas':patterns.values}),hide_index=True,use_container_width=True)
 with tabs[3]:
-    a,b=st.columns(2)
-    with a:donut(d,"P6","P6 · Nivel educativo","people_edu")
-    with b:donut(d,"P7","P7 · Capacitación","people_train")
-    categorical(d,"P8","P8 · Conocimiento de tecnologías","people_knowledge")
-    box_compare(d,"Capacitacion_01","people_box")
+    st.subheader('Capacidades organizacionales')
+    c1,c2=st.columns(2)
+    with c1:
+        z=counts(d.P6 if d.P6.notna().any() else d.Educacion_cat)
+        fig=go.Figure(go.Scatter(x=z.values,y=z.index,mode='markers',marker=dict(size=17,color=PLUM),text=z.values,textposition='middle right'))
+        for label,val in z.items():fig.add_shape(type='line',x0=0,x1=int(val),y0=label,y1=label,line=dict(color='#B5C5CF',width=3))
+        fig.update_xaxes(title='Empresas',range=[0,max(z.values)*1.25])
+        graph(fig,'Nivel educativo: gráfico de puntos','capacity_education','Frecuencia de cada nivel educativo.',330)
+    with c2:
+        z=counts(d.P7 if d.P7.notna().any() else d.Capacitacion_01.map({0:'No',1:'Sí'}))
+        fig=go.Figure(go.Pie(labels=z.index,values=z.values,hole=.65,marker_colors=[TEAL,GOLD],textinfo='percent+label'))
+        graph(fig,'Capacitación reportada','capacity_training','Distribución de respuestas válidas.',330)
+    z=counts(d.P8 if d.P8.notna().any() else d.Conocimiento_cat)
+    fig=go.Figure(go.Bar(x=z.index,y=z.values,marker_color=COLORS[:len(z)],text=z.values,textposition='outside'))
+    fig.update_yaxes(title='Empresas');graph(fig,'Conocimiento tecnológico','capacity_knowledge','Respuestas por nivel declarado.',310)
+    sub=d[['Conocimiento_cat','Numero_tecnologias_8']].dropna()
+    g=sub.groupby('Conocimiento_cat').Numero_tecnologias_8.agg(['mean','size']).reset_index().sort_values('mean')
+    fig=go.Figure(go.Bar(x=g['mean'],y=g.Conocimiento_cat,orientation='h',marker_color=SAGE,text=[f'{a:.2f} (n={n})' for a,n in zip(g['mean'],g['size'])],textposition='outside'))
+    fig.update_xaxes(range=[0,9],title='Tecnologías por empresa');graph(fig,'Adopción según conocimiento','capacity_relation','Comparación descriptiva; grupos pequeños requieren cautela.',335)
 with tabs[4]:
-    a,b=st.columns(2)
-    with a:categorical(d,"P9","P9 · Costos de implementación","cost_p9")
-    with b:donut(d,"P10","P10 · Subsidios y apoyos","cost_p10")
-    categorical(d,"P11","P11 · Eficiencia operativa percibida","cost_p11")
-    likert(d,"cost_likert")
+    st.subheader('Costos, incentivos y eficiencia percibida')
+    vals=[]
+    for field,label in [('Costo_1a5','Costos'),('Eficiencia_1a5','Eficiencia')]:
+        a=d[field].dropna();vals.append((label,a))
+    fig=go.Figure()
+    likert_colors=['#B66F77','#D7A18C','#C6CFD4','#87B8A5',TEAL]
+    for score in range(1,6):
+        fig.add_trace(go.Bar(y=[x[0] for x in vals],x=[100*(x[1]==score).mean() if len(x[1]) else 0 for x in vals],orientation='h',name=str(score),marker_color=likert_colors[score-1]))
+    fig.update_layout(barmode='stack',xaxis_title='% de respuestas',legend_title='Escala 1–5')
+    graph(fig,'Escalas Likert: costos y eficiencia','perceptions_likert','Comparación de distribuciones, no de impactos objetivos.',335)
+    sub=d[['Costo_1a5','Eficiencia_1a5']].dropna()
+    cross=pd.crosstab(sub.Costo_1a5,sub.Eficiencia_1a5)
+    fig=go.Figure(go.Heatmap(x=cross.columns.astype(str),y=cross.index.astype(str),z=cross.to_numpy(),text=cross.to_numpy(),texttemplate='%{text}',colorscale=[[0,'#EEF4F6'],[1,BLUE]],colorbar=dict(title='Empresas')))
+    fig.update_xaxes(title='Eficiencia percibida (1–5)');fig.update_yaxes(title='Costos percibidos (1–5)')
+    graph(fig,'Cruce: costos y eficiencia percibida','perceptions_cross','Frecuencias absolutas por combinación de respuestas.',340)
+    z=counts(d.P10 if d.P10.notna().any() else d.Incentivos_01.map({0:'No',1:'Sí'}))
+    st.markdown('**Acceso a incentivos o apoyos**')
+    st.dataframe(pd.DataFrame({'Respuesta':z.index,'Empresas':z.values}),hide_index=True)
 with tabs[5]:
-    st.subheader("Relaciones estadísticas")
-    st.caption("Análisis exploratorio con muestra no probabilística. Las asociaciones no implican causalidad.")
-    corr_cols=["Numero_tecnologias_8","Flota_ord","Antiguedad_ord","Conocimiento_1a5",
-               "Costo_1a5","Eficiencia_1a5"]
-    corr_heatmap(d,corr_cols,"stat_corr")
-    st.subheader("Comparaciones entre grupos")
-    g=st.selectbox("Variable para comparar la adopción",["Capacitacion_01","Flota_cat","Incentivos_01"],
-                   format_func=lambda c:{"Capacitacion_01":"Capacitación","Flota_cat":"Tamaño de flota",
-                                          "Incentivos_01":"Apoyos gubernamentales"}[c])
-    box_compare(d,g,"stat_box")
-    test=group_test(d,g)
-    if test:
-        name,stat,p,ns=test
-        st.markdown(f"**{name}:** estadístico = {stat:.3f}; valor *p* aproximado = {p:.4f}; tamaños de grupo = {ns}.")
-        if min(ns)<5:st.warning("Al menos un grupo tiene menos de cinco empresas; interprete esta prueba con especial cautela.")
-        st.caption("Prueba exploratoria sin ajuste por comparaciones múltiples. "
-                   "Considere tamaños de efecto, distribución de los grupos y limitaciones de n.")
-    st.subheader("Adopción y eficiencia percibida")
-    adoption_efficiency(d,"stat_adoption_efficiency")
-    st.subheader("Adopción por tamaño de flota")
-    adoption_by_fleet(d,"stat_fleet")
+    st.subheader('Regresión binomial (GLM): intensidad de adopción tecnológica')
+    st.info('VERSIÓN ACTUALIZADA · Regresión binomial disponible. Si ve este mensaje, Streamlit ya cargó el nuevo código.')
+    st.latex(r'Y_i\sim\operatorname{Binomial}(8,p_i),\quad\operatorname{logit}(p_i)=\beta_0+\beta_1\,\mathrm{Flota}_i')
+    st.caption('Variable dependiente: número de tecnologías adoptadas (0–8). Flota: categoría ordinal de 1 a 4. Modelo reducido predefinido.')
+    result=glm_binomial(d.Numero_tecnologias_8,d.Flota_ord)
+    if result is None:st.warning('Los filtros dejan datos insuficientes o un modelo no identificable. Amplíe la selección.');
+    else:
+        b=result['beta']; ci=result['ci']; c1,c2,c3,c4=st.columns(4)
+        with c1:kpi('Razón de momios',f"{result['odds']:.3f}",'Por nivel de flota')
+        with c2:kpi('IC 95 % OR',f'{ci[0]:.2f}–{ci[1]:.2f}','Aproximación Wald')
+        with c3:kpi('Valor p',f"{result['pvalue']:.4f}",'Prueba Wald exploratoria')
+        with c4:kpi('AIC',f"{result['aic']:.2f}",'Modelo binomial')
+        order=[1,2,3,4]
+        eta=b[0]+b[1]*np.array(order);probs=1/(1+np.exp(-eta))
+        observed=result['frame'].groupby('x').y.agg(['mean','size']).reindex(order)
+        fig=go.Figure()
+        fig.add_trace(go.Scatter(x=order,y=8*probs,mode='lines+markers',name='Predicción binomial',line=dict(color=TEAL,width=3)))
+        fig.add_trace(go.Scatter(x=order,y=observed['mean'],mode='markers',name='Promedio observado',marker=dict(size=13,color=GOLD,symbol='diamond'),customdata=observed['size'],hovertemplate='Flota %{x}<br>Media %{y:.2f}<br>n=%{customdata}<extra></extra>'))
+        fig.update_xaxes(dtick=1,title='Categoría ordinal de flota (1–4)');fig.update_yaxes(range=[0,8.5],title='Tecnologías adoptadas (de 8)')
+        graph(fig,'Adopción observada y predicción del modelo','binomial_prediction','Las predicciones son valores esperados del conteo de tecnologías, no probabilidades de adoptar alguna tecnología.',380)
+        fig=go.Figure(go.Scatter(x=[result['odds']],y=['Flota ordinal'],mode='markers',marker=dict(size=13,color=TEAL),error_x=dict(type='data',symmetric=False,array=[ci[1]-result['odds']],arrayminus=[result['odds']-ci[0]])))
+        fig.add_vline(x=1,line_dash='dash',line_color=SLATE);fig.update_xaxes(title='Razón de momios (OR) e IC 95 %')
+        graph(fig,'Efecto estimado del tamaño de flota','binomial_or','OR mayor que 1 indica asociación positiva con la propensión modelada a adoptar cada tecnología.',255)
+        st.markdown(f"**Ecuación estimada:** logit(p) = {b[0]:.4f} + {b[1]:.4f} × Flota")
+        st.caption(f"n={result['n']}; dispersión de Pearson/gl={result['disp']:.3f}; razón de verosimilitudes LR={result['lr']:.3f}. Estimación de máxima verosimilitud con algoritmo IRLS, sin SciPy.")
+        st.warning('Interpretación exploratoria: n pequeño y muestra por conveniencia. El modelo binomial presupone ocho oportunidades de adopción con probabilidad común condicional y dependencia limitada; tecnologías heterogéneas y correlacionadas pueden incumplir ese supuesto. No afirmar causalidad ni representatividad poblacional.')
 with tabs[6]:
-    st.subheader("Base filtrada")
+    st.subheader('Datos filtrados y trazabilidad')
     st.dataframe(d,use_container_width=True,hide_index=True)
-    st.download_button("Descargar CSV de datos filtrados",
-                       d.to_csv(index=False).encode("utf-8-sig"),
-                       file_name="transporte_carga_filtrado.csv",mime="text/csv")
-    st.caption("Para modelos reproducibles, use las variables codificadas de la hoja Base_modelo.")
-st.divider()
-st.caption("Las conclusiones describen las empresas encuestadas. No se pueden extrapolar estadísticamente "
-           "a todas las empresas de transporte de carga ni atribuir efectos causales.")
+    st.download_button('Exportar CSV filtrado',d.to_csv(index=False).encode('utf-8-sig'),file_name='transporte_carga_filtrado.csv',mime='text/csv')
+    st.caption('No publique respuestas identificables en repositorios públicos. Los gráficos pueden exportarse a PNG desde el icono de cámara.')
+st.divider();st.caption('Resultados descriptivos de empresas encuestadas. No permiten atribuir efectos causales ni extrapolar a todas las empresas de transporte de carga.')
