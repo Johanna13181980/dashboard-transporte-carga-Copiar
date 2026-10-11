@@ -7,8 +7,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
-from scipy import stats
-import statsmodels.api as sm
 
 st.set_page_config(page_title="Transporte de carga | Análisis científico", page_icon="📊",
                    layout="wide", initial_sidebar_state="expanded")
@@ -208,12 +206,12 @@ def spearman_table(df,cols):
         for b in cols[i+1:]:
             sub=df[[a,b]].apply(pd.to_numeric,errors="coerce").dropna()
             if len(sub)<5 or sub[a].nunique()<2 or sub[b].nunique()<2:continue
-            with np.errstate(all="ignore"):
-                res=stats.spearmanr(sub[a],sub[b])
-            if np.isfinite(res.statistic):
+            rho=sub[a].corr(sub[b],method="spearman")
+            if np.isfinite(rho):
                 records.append({"Variable A":NUMERIC[a],"Variable B":NUMERIC[b],
-                                "rho":float(res.statistic),"p":float(res.pvalue),"n":len(sub)})
+                                "rho":float(rho),"n":len(sub)})
     return pd.DataFrame(records)
+
 
 def corr_heatmap(df,cols,key):
     pairs=spearman_table(df,cols)
@@ -233,7 +231,7 @@ def corr_heatmap(df,cols,key):
     fig.update_yaxes(autorange="reversed",automargin=True)
     panel("Matriz de correlación de Spearman",fig,key,
           "Coeficientes descriptivos. Las variables binarias u ordinales requieren interpretación contextual.",height=530)
-    st.dataframe(pairs.assign(rho=pairs.rho.round(3),p=pairs.p.round(4)),hide_index=True,use_container_width=True)
+    st.dataframe(pairs.assign(rho=pairs.rho.round(3)),hide_index=True,use_container_width=True)
 
 def box_compare(df,group,key):
     sub=df[[group,"Numero_tecnologias_8"]].dropna().copy()
@@ -250,40 +248,62 @@ def box_compare(df,group,key):
 
 def group_test(df,group):
     sub=df[[group,"Numero_tecnologias_8"]].dropna()
-    groups=[x["Numero_tecnologias_8"].to_numpy() for _,x in sub.groupby(group)]
+    groups=[x["Numero_tecnologias_8"].to_numpy(dtype=float) for _,x in sub.groupby(group)]
     if len(groups)<2 or any(len(x)==0 for x in groups):return None
-    try:
-        if len(groups)==2:
-            r=stats.mannwhitneyu(groups[0],groups[1],alternative="two-sided",method="auto")
-            return "Mann–Whitney U",float(r.statistic),float(r.pvalue),[len(x) for x in groups]
-        r=stats.kruskal(*groups)
-        return "Kruskal–Wallis",float(r.statistic),float(r.pvalue),[len(x) for x in groups]
-    except ValueError:return None
+    # Prueba exploratoria de permutación sin dependencias adicionales.
+    values=np.concatenate(groups)
+    sizes=[len(x) for x in groups]
+    if len(groups)==2:
+        statistic=float(abs(np.mean(groups[0])-np.mean(groups[1])))
+        label="Permutación: diferencia absoluta de medias"
+        def calc(arr):
+            return abs(float(arr[:sizes[0]].mean()-arr[sizes[0]:].mean()))
+    else:
+        statistic=float(np.var([np.mean(x) for x in groups]))
+        label="Permutación: variación entre medias"
+        def calc(arr):
+            ix=np.cumsum(sizes)[:-1]
+            return float(np.var([np.mean(x) for x in np.split(arr,ix)]))
+    rng=np.random.default_rng(2026)
+    reps=4999
+    extreme=sum(calc(rng.permutation(values))>=statistic-1e-12 for _ in range(reps))
+    p=(extreme+1)/(reps+1)
+    return label,statistic,float(p),sizes
+
 
 def regression(df,xcol,ycol,key):
     sub=df[[xcol,ycol]].apply(pd.to_numeric,errors="coerce").dropna()
     if len(sub)<12 or sub[xcol].nunique()<2 or sub[ycol].nunique()<2:
         st.info("No hay observaciones o variación suficientes para estimar esta regresión.");return
-    try:
-        X=sm.add_constant(sub[[xcol]],has_constant="add")
-        model=sm.OLS(sub[ycol],X).fit(cov_type="HC3")
-        beta=float(model.params[xcol]); ci=model.conf_int().loc[xcol]
-        p=float(model.pvalues[xcol])
-        fig=go.Figure()
-        fig.add_trace(go.Scatter(x=[beta],y=[NUMERIC[xcol]],mode="markers",
-                                 marker=dict(size=12,color=TEAL),
-                                 error_x=dict(type="data",symmetric=False,
-                                              array=[max(0,float(ci[1]-beta))],
-                                              arrayminus=[max(0,float(beta-ci[0]))]),
-                                 hovertemplate="β=%{x:.3f}<extra></extra>"))
-        fig.add_vline(x=0,line_dash="dash",line_color=GRAY)
-        fig.update_xaxes(title="Coeficiente β e IC 95 % (HC3)")
-        panel("Coeficiente de regresión exploratoria",fig,key,
-              f"Variable dependiente: {NUMERIC[ycol]}. n={len(sub)}; β={beta:.3f}; p={p:.3f}; R²={model.rsquared:.3f}.",height=250)
-        st.caption("Modelo lineal univariado exploratorio. La variable dependiente puede ser ordinal o de conteo; "
-                   "por ello este modelo no sustituye una regresión ordinal o de conteo validada. "
-                   "El intervalo HC3 no corrige las limitaciones de una muestra pequeña ni establece causalidad.")
-    except Exception as e:st.warning(f"No se pudo ajustar el modelo: {e}")
+    x=sub[xcol].to_numpy(dtype=float); y=sub[ycol].to_numpy(dtype=float)
+    def slope(xx,yy):
+        if np.var(xx)<1e-12:return np.nan
+        return float(np.cov(xx,yy,ddof=0)[0,1]/np.var(xx))
+    beta=slope(x,y)
+    if not np.isfinite(beta):
+        st.info("La variable explicativa no tiene variación suficiente.");return
+    rng=np.random.default_rng(2026)
+    bs=[]
+    for _ in range(1999):
+        ix=rng.integers(0,len(x),len(x))
+        b=slope(x[ix],y[ix])
+        if np.isfinite(b):bs.append(b)
+    if len(bs)<100:
+        st.info("No fue posible calcular intervalos estables con remuestreo.");return
+    lo,hi=np.percentile(bs,[2.5,97.5])
+    r=np.corrcoef(x,y)[0,1]
+    fig=go.Figure(go.Scatter(x=[beta],y=[NUMERIC[xcol]],mode="markers",
+                             marker=dict(size=12,color=TEAL),
+                             error_x=dict(type="data",symmetric=False,
+                                          array=[max(0,float(hi-beta))],
+                                          arrayminus=[max(0,float(beta-lo))])))
+    fig.add_vline(x=0,line_dash="dash",line_color=GRAY)
+    fig.update_xaxes(title="Pendiente e intervalo bootstrap 95 %")
+    panel("Regresión lineal exploratoria",fig,key,
+          f"Dependiente: {NUMERIC[ycol]}; n={len(sub)}; pendiente={beta:.3f}; R²={r*r:.3f}.",height=250)
+    st.caption("Intervalo bootstrap percentil (1.999 remuestreos). Análisis exploratorio, "
+               "sin inferencia causal; la escala ordinal o de conteo limita la interpretación.")
+
 
 with st.sidebar:
     st.markdown("## Transporte de carga")
@@ -385,7 +405,7 @@ with tabs[5]:
     test=group_test(d,g)
     if test:
         name,stat,p,ns=test
-        st.markdown(f"**{name}:** estadístico = {stat:.3f}; valor *p* = {p:.4f}; tamaños de grupo = {ns}.")
+        st.markdown(f"**{name}:** estadístico = {stat:.3f}; valor *p* aproximado = {p:.4f}; tamaños de grupo = {ns}.")
         if min(ns)<5:st.warning("Al menos un grupo tiene menos de cinco empresas; interprete esta prueba con especial cautela.")
         st.caption("Prueba exploratoria sin ajuste por comparaciones múltiples. "
                    "Considere tamaños de efecto, distribución de los grupos y limitaciones de n.")
