@@ -81,7 +81,7 @@ def donut(df,col,title):
  fig=px.pie(counts,names='Categoría',values='Empresas',hole=.58,title=title,color_discrete_sequence=COLORS)
  fig.update_traces(textinfo='percent')
  fig.update_layout(height=360,margin=dict(l=5,r=5,t=55,b=45),legend=dict(orientation='h',y=-.18))
-st.plotly_chart(fig,use_container_width=True,key=f"donut_{col}")
+st.plotly_chart(fig, use_container_width=True, key="grafico_principal")
 def heatmap(df,x,y,title):
  ct=pd.crosstab(df[x].map(label),df[y].map(label))
  if ct.empty:return
