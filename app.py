@@ -11,28 +11,55 @@ COLORS=[TEAL,BLUE,GOLD,SAGE,PLUM,CORAL,CYAN,SLATE]
 TECH={'T1_GPS':'GPS y rastreo','T2_Rutas':'Gestión de rutas','T3_IoT':'Sensores IoT','T4_TMS_WMS':'TMS / WMS','T5_Apps':'Aplicaciones móviles','T6_Mantenimiento':'Mantenimiento predictivo','T7_Telemetria':'Telemetría','T8_Emisiones':'Monitoreo de emisiones'}
 NUM={'Numero_tecnologias_8':'Tecnologías adoptadas','Flota_ord':'Tamaño de flota','Antiguedad_ord':'Antigüedad','Conocimiento_1a5':'Conocimiento','Costo_1a5':'Costos percibidos','Eficiencia_1a5':'Eficiencia percibida'}
 st.markdown('''<style>
-.stApp{background:#F5F8FA;color:#1D3A4D}.block-container{max-width:1480px;padding-top:1.1rem}h1,h2,h3{color:#173B55!important}
-section[data-testid="stSidebar"]{background:#173B55!important}
-section[data-testid="stSidebar"] h2,section[data-testid="stSidebar"] h3,section[data-testid="stSidebar"] label,section[data-testid="stSidebar"] p{color:#F4F8FB!important}
-section[data-testid="stSidebar"] [data-baseweb="select"]>div{background:#FFFFFF!important;border:1px solid #C3D6DF!important}
-section[data-testid="stSidebar"] [data-baseweb="tag"],section[data-testid="stSidebar"] [data-baseweb="tag"]:hover,
-section[data-testid="stSidebar"] [data-baseweb="tag"][kind],section[data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="tag"]{background:#217C83!important;background-color:#217C83!important;border-color:#217C83!important;color:#FFFFFF!important}
-section[data-testid="stSidebar"] span[data-baseweb="tag"],section[data-testid="stSidebar"] [data-baseweb="tag"]{background:#217C83!important}
-section[data-testid="stSidebar"] [data-baseweb="tag"] *,section[data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="tag"] *{color:white!important;fill:white!important}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"],section[data-testid="stSidebar"] [data-testid="stFileUploader"] section{background:#E7F0F4!important;border:2px dashed #7DA8B6!important;border-radius:10px!important}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *{color:#23465C!important}
-section[data-testid="stSidebar"] [data-testid="stFileUploader"] button{background:#217C83!important;color:white!important}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"]{background:#D8E8EE!important;border-radius:8px!important}
+:root{--accent:#C74653;--navy:#173B55;--muted:#5B7486;--surface:#FFFFFF}
+.stApp{background:#F3F6F9;color:#173B55}
+.block-container{max-width:1420px;padding-top:1.4rem;padding-bottom:2rem}
+h1,h2,h3{color:#173B55!important;letter-spacing:-.02em}
+h1{font-size:2rem!important}
+h3{font-size:1.24rem!important}
+section[data-testid="stSidebar"]{background:#173B55!important;border-right:1px solid #234B63}
+section[data-testid="stSidebar"] h2,section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] label,section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{color:#F0F5F7!important}
+section[data-testid="stSidebar"] [data-baseweb="select"]>div{background:#FFF!important;border:1px solid #C6D4DF!important;border-radius:9px!important}
+section[data-testid="stSidebar"] [data-baseweb="select"] input{color:#173B55!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"],
+section[data-testid="stSidebar"] [data-baseweb="tag"] span{background:#C74653!important;background-color:#C74653!important;border-color:#C74653!important;color:#FFF!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"] *,
+section[data-testid="stSidebar"] [data-baseweb="tag"] svg{color:#FFF!important;fill:#FFF!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"] button{background:transparent!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]{background:#EAF1F6!important;border:2px dashed #7B9BAD!important;border-radius:12px!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *{color:#173B55!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button{background:#C74653!important;color:#FFF!important;border:0!important}
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"]{background:#E5EFF4!important;border-radius:9px!important}
 section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] *{color:#173B55!important}
-.stTabs [data-baseweb="tab-highlight"]{background-color:#217C83!important}
-.stTabs [data-baseweb="tab-border"]{background-color:#DCE8ED!important}
-.stTabs [role="tab"][aria-selected="true"]{color:#217C83!important;border-bottom:3px solid #217C83!important}
-.stTabs [role="tab"]:focus{box-shadow:none!important}
-section[data-testid="stSidebar"] [data-baseweb="tag"] button{background:transparent!important;color:white!important}
-section[data-testid="stSidebar"] [data-baseweb="tag"] svg{fill:white!important;color:white!important}
-.stTabs [data-baseweb="tab"]{color:#47677B!important}.stTabs [data-baseweb="tab"][aria-selected="true"]{color:#217C83!important;border-color:#217C83!important}
-button[kind="primary"],div[data-testid="stButton"] button[kind="primary"]{background:#217C83!important;border-color:#217C83!important}
-.kpi{border:1px solid #DDE7EC;border-top:4px solid #217C83;background:white;border-radius:11px;padding:14px 17px}.kpi small{color:#667F8C}.kpi b{display:block;font-size:27px;color:#173B55;margin-top:5px}
+/* Un solo color para texto, borde y subrayado; oculta el indicador nativo */
+.stTabs [data-baseweb="tab-list"]{gap:6px!important;border-bottom:1px solid #D7E2E9!important}
+.stTabs [data-baseweb="tab-highlight"],
+.stTabs [data-baseweb="tab-border"]{display:none!important;background:transparent!important}
+.stTabs [data-baseweb="tab"]{position:relative!important;color:#597387!important;
+ border:1px solid transparent!important;border-radius:9px 9px 0 0!important;
+ padding:10px 13px!important;background:transparent!important;font-weight:550!important}
+.stTabs [data-baseweb="tab"][aria-selected="true"],
+.stTabs button[role="tab"][aria-selected="true"]{color:#C74653!important;
+ background:#FFF4F4!important;border:1px solid #F0D3D6!important;
+ border-bottom:3px solid #C74653!important;font-weight:750!important}
+.stTabs [data-baseweb="tab"][aria-selected="true"] *,
+.stTabs button[role="tab"][aria-selected="true"] *{color:#C74653!important}
+.stTabs [data-baseweb="tab"]:focus{box-shadow:none!important}
+.stTabs [data-baseweb="tab"]:hover{background:#FBECEF!important;color:#C74653!important}
+div[data-testid="stVerticalBlockBorderWrapper"]>div[data-testid="stVerticalBlock"]{border-radius:14px}
+div[data-testid="stVerticalBlockBorderWrapper"]{border-radius:14px!important}
+div[data-testid="stMetric"]{background:#FFF;border:1px solid #DCE5EB;border-radius:12px;padding:15px}
+button[kind="primary"],div[data-testid="stButton"] button[kind="primary"]{background:#C74653!important;border-color:#C74653!important}
+.kpi{border:1px solid #DFE7EC;border-left:4px solid #C74653;background:#FFF;border-radius:12px;padding:17px 19px;box-shadow:0 3px 13px #173B5508;min-height:108px}
+.kpi small{color:#5D788B;font-size:12px}
+.kpi b{display:block;font-size:29px;color:#173B55;margin:6px 0 4px;font-weight:750}
+.hero{background:linear-gradient(112deg,#173B55,#275C75);border-radius:17px;
+padding:22px 28px;margin-bottom:18px;color:white;box-shadow:0 8px 26px #173B5520}
+.hero h1{color:#FFF!important;font-size:1.85rem!important;margin:0 0 8px!important}
+.hero p{color:#DBEAF1!important;font-size:14px;margin:0}
+.hero .eyebrow{color:#E9A6AD!important;text-transform:uppercase;letter-spacing:.13em;font-size:11px;font-weight:800;margin-bottom:9px}
 </style>''',unsafe_allow_html=True)
 
 def norm(x):
@@ -87,9 +114,9 @@ def read_data(book):
 
 def graph(fig,title,key,caption='',height=355):
     with st.container(border=True):
-        st.markdown('**'+title+'**')
+        st.markdown('#### '+title)
         if caption:st.caption(caption)
-        fig.update_layout(height=height,margin=dict(l=10,r=25,t=12,b=40),paper_bgcolor='white',plot_bgcolor='white',font=dict(color='#31556A',size=12),legend=dict(orientation='h',y=-.22))
+        fig.update_layout(height=height,margin=dict(l=15,r=28,t=16,b=45),paper_bgcolor='white',plot_bgcolor='white',font=dict(family='Arial',color='#31556A',size=12),legend=dict(orientation='h',y=-.22),hoverlabel=dict(bgcolor='#173B55',font_color='white'))
         fig.update_xaxes(gridcolor='#E9EFF3',zeroline=False)
         fig.update_yaxes(gridcolor='#E9EFF3',zeroline=False)
         st.plotly_chart(fig,use_container_width=True,key=key,config={'displaylogo':False,'toImageButtonOptions':{'format':'png','scale':3}})
@@ -147,9 +174,11 @@ with st.sidebar:
     st.caption('Evidencia empírica · Adopción tecnológica')
     file=st.file_uploader('Cargar base Excel',type=['xlsx'])
     st.caption('La base se procesa durante la sesión; no la publique en GitHub.')
-st.title('Adopción tecnológica en empresas de transporte de carga')
-st.caption('Dashboard científico · Estudio transversal · 22 empresas participantes · Muestra no probabilística')
-st.caption('Resultados generados exclusivamente desde el Excel cargado. No se utilizan las cifras ilustrativas del boceto.')
+st.markdown('''<div class="hero">
+<div class="eyebrow">Observatorio de transformación digital · Evidencia empírica</div>
+<h1>Adopción tecnológica en el transporte de carga</h1>
+<p>Estudio transversal · 22 empresas encuestadas · Muestreo no probabilístico · Análisis descriptivo y regresión binomial exploratoria</p>
+</div>''',unsafe_allow_html=True)
 if file is None:
     st.info('Cargue la base limpia de la encuesta en el panel izquierdo para activar los análisis.');st.stop()
 try:d=read_data(read_book(file.getvalue()))
@@ -165,7 +194,8 @@ with st.sidebar:
         else:
             selected=st.multiselect(name,opts,default=opts,key='filtro_'+col)
         d=d[d[col].isin(selected)]
-    st.caption(f'Empresas seleccionadas: {len(d)}')
+    st.caption(f'Empresas seleccionadas: {len(d)} de 22')
+    st.progress(min(len(d)/22,1.0),text='Cobertura de muestra')
 if d.empty:st.warning('No hay empresas con estos filtros.');st.stop()
 cols=st.columns(4)
 with cols[0]:kpi('Empresas',len(d),'Muestra filtrada')
