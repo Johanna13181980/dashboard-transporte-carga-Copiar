@@ -1,6 +1,1 @@
-1. Descomprima el ZIP.
-2. En GitHub (rama main), seleccione Add file > Upload files.
-3. Suba app.py y requirements.txt y confirme Commit changes.
-4. Para eliminar el rojo de los filtros y pestañas, es IMPORTANTE subir también .streamlit/config.toml a esa misma ruta. GitHub permite crear carpeta .streamlit y luego cargar config.toml dentro de ella.
-5. Abra su app de Streamlit, cargue el Excel y revise la pestaña Modelo binomial.
-6. No suba las respuestas individuales a GitHub público.
+VERSIÓN ACADÉMICA. Incluye regresión binomial exploratoria, matriz de coadopción, mapa de calor tecnologías por flota y burbujas adopción/eficiencia. En GitHub reemplace app.py y requirements.txt; conserve .streamlit/config.toml. No publique datos individuales de empresas. Cargue el Excel desde Streamlit. No se incluyeron cifras del boceto ilustrativo.

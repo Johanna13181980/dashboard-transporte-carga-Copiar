@@ -17,6 +17,7 @@ section[data-testid="stSidebar"] h2,section[data-testid="stSidebar"] h3,section[
 section[data-testid="stSidebar"] [data-baseweb="select"]>div{background:#FFFFFF!important;border:1px solid #C3D6DF!important}
 section[data-testid="stSidebar"] [data-baseweb="tag"],section[data-testid="stSidebar"] [data-baseweb="tag"]:hover,
 section[data-testid="stSidebar"] [data-baseweb="tag"][kind],section[data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="tag"]{background:#217C83!important;background-color:#217C83!important;border-color:#217C83!important;color:#FFFFFF!important}
+section[data-testid="stSidebar"] span[data-baseweb="tag"],section[data-testid="stSidebar"] [data-baseweb="tag"]{background:#217C83!important}
 section[data-testid="stSidebar"] [data-baseweb="tag"] *,section[data-testid="stSidebar"] [data-testid="stMultiSelect"] [data-baseweb="tag"] *{color:white!important;fill:white!important}
 section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"],section[data-testid="stSidebar"] [data-testid="stFileUploader"] section{background:#E7F0F4!important;border:2px dashed #7DA8B6!important;border-radius:10px!important}
 section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *{color:#23465C!important}
@@ -24,6 +25,11 @@ section[data-testid="stSidebar"] [data-testid="stFileUploader"] button{backgroun
 section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"]{background:#D8E8EE!important;border-radius:8px!important}
 section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] *{color:#173B55!important}
 .stTabs [data-baseweb="tab-highlight"]{background-color:#217C83!important}
+.stTabs [data-baseweb="tab-border"]{background-color:#DCE8ED!important}
+.stTabs [role="tab"][aria-selected="true"]{color:#217C83!important;border-bottom:3px solid #217C83!important}
+.stTabs [role="tab"]:focus{box-shadow:none!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"] button{background:transparent!important;color:white!important}
+section[data-testid="stSidebar"] [data-baseweb="tag"] svg{fill:white!important;color:white!important}
 .stTabs [data-baseweb="tab"]{color:#47677B!important}.stTabs [data-baseweb="tab"][aria-selected="true"]{color:#217C83!important;border-color:#217C83!important}
 button[kind="primary"],div[data-testid="stButton"] button[kind="primary"]{background:#217C83!important;border-color:#217C83!important}
 .kpi{border:1px solid #DDE7EC;border-top:4px solid #217C83;background:white;border-radius:11px;padding:14px 17px}.kpi small{color:#667F8C}.kpi b{display:block;font-size:27px;color:#173B55;margin-top:5px}
@@ -56,7 +62,7 @@ def read_data(book):
             d=pd.DataFrame(index=raw.index)
             for i in range(1,12):d['P'+str(i)]=raw[q[i]] if i in q else np.nan
             d['Flota_cat']=d['P1'].map(norm);d['Antiguedad_cat']=d['P2'].map(norm);d['Tipo_carga']=d['P3'].map(norm)
-            d['Educacion_cat']=d['P6'].map(norm);d['Conocimiento_cat']=d['P8'].map(norm)
+            d['Educacion_cat']=d['P6'].map(norm);d['Conocimiento_cat']=d['P8'].map(norm);d['Antiguedad_cat']=d['P2'].map(norm)
             d['Flota_ord']=d['Flota_cat'].map({'1-5':1,'6-15':2,'16-30':3,'Más de 30':4})
             d['Antiguedad_ord']=d['Antiguedad_cat'].map({'Menos de 1 año':1,'1-5 años':2,'De 6 a 10 años':3,'6-10 años':3,'Más de 10 años':4})
             d['Educacion_ord']=d['Educacion_cat'].map({'Primaria':1,'Secundaria':2,'Técnico o tecnólogo':3,'Técnico/Tecnólogo':3,'Profesional':4,'Posgrado':5})
@@ -142,7 +148,8 @@ with st.sidebar:
     file=st.file_uploader('Cargar base Excel',type=['xlsx'])
     st.caption('La base se procesa durante la sesión; no la publique en GitHub.')
 st.title('Adopción tecnológica en empresas de transporte de carga')
-st.caption('Dashboard científico | Estudio transversal · muestra no probabilística')
+st.caption('Dashboard científico · Estudio transversal · 22 empresas participantes · Muestra no probabilística')
+st.caption('Resultados generados exclusivamente desde el Excel cargado. No se utilizan las cifras ilustrativas del boceto.')
 if file is None:
     st.info('Cargue la base limpia de la encuesta en el panel izquierdo para activar los análisis.');st.stop()
 try:d=read_data(read_book(file.getvalue()))
@@ -189,6 +196,7 @@ with tabs[1]:
         fig.update_xaxes(title='Empresas');graph(fig,'Tamaño de flota','profile_fleet','Frecuencias absolutas.',345)
     with c2:
         z=counts(d.P2 if d.P2.notna().any() else d.Antiguedad_cat)
+        if z.empty:st.info('No hay respuestas para antigüedad.')
         fig=go.Figure(go.Pie(labels=z.index,values=z.values,hole=.62,marker_colors=COLORS,textinfo='percent'))
         graph(fig,'Antigüedad empresarial','profile_age','Distribución de la muestra.',345)
     z=counts(d.P3 if d.P3.notna().any() else d.Tipo_carga)
@@ -202,6 +210,22 @@ with tabs[2]:
     fig.update_xaxes(tickangle=-35,automargin=True);fig.update_yaxes(autorange='reversed')
     graph(fig,'Matriz de coadopción tecnológica','technology_co','Cada celda muestra empresas que implementaron simultáneamente dos tecnologías; la diagonal representa frecuencias.',535)
     patterns=mat.apply(lambda row:', '.join([TECH[c] for c in TECH if row[c]]) or 'Ninguna',axis=1).value_counts().head(8)
+    st.markdown('**Adopción tecnológica por tamaño de flota**')
+    groups=(d.dropna(subset=['Flota_cat']).groupby('Flota_cat',observed=True))
+    if len(groups):
+        fleet_order=[v for v in ['1-5','6-15','16-30','Más de 30'] if v in groups.groups]
+        fleet_order += [v for v in groups.groups if v not in fleet_order]
+        rates=np.array([[100*groups.get_group(f)[c].mean() for c in TECH] for f in fleet_order])
+        ns=[len(groups.get_group(f)) for f in fleet_order]
+        fig=go.Figure(go.Heatmap(
+            z=rates,x=list(TECH.values()),
+            y=[f'{f} (n={n})' for f,n in zip(fleet_order,ns)],
+            colorscale=[[0,'#EAF2F4'],[.5,'#82B8B5'],[1,'#217C83']],
+            zmin=0,zmax=100,text=np.rint(rates).astype(int),
+            texttemplate='%{text}%',colorbar=dict(title='%')))
+        fig.update_xaxes(tickangle=-30,automargin=True)
+        graph(fig,'Mapa de calor: tecnologías × tamaño de flota','tech_by_fleet',
+              'Porcentaje dentro de cada categoría de flota; interpretar con cautela los grupos pequeños.',390)
     st.markdown('**Combinaciones tecnológicas más frecuentes**')
     st.dataframe(pd.DataFrame({'Combinación':patterns.index,'Empresas':patterns.values}),hide_index=True,use_container_width=True)
 with tabs[3]:
@@ -240,14 +264,31 @@ with tabs[4]:
     fig=go.Figure(go.Heatmap(x=cross.columns.astype(str),y=cross.index.astype(str),z=cross.to_numpy(),text=cross.to_numpy(),texttemplate='%{text}',colorscale=[[0,'#EEF4F6'],[1,BLUE]],colorbar=dict(title='Empresas')))
     fig.update_xaxes(title='Eficiencia percibida (1–5)');fig.update_yaxes(title='Costos percibidos (1–5)')
     graph(fig,'Cruce: costos y eficiencia percibida','perceptions_cross','Frecuencias absolutas por combinación de respuestas.',340)
+    sub=d[['Numero_tecnologias_8','Eficiencia_1a5']].dropna()
+    if not sub.empty:
+        bubble=sub.groupby(['Numero_tecnologias_8','Eficiencia_1a5']).size().reset_index(name='Empresas')
+        fig=px.scatter(bubble,x='Numero_tecnologias_8',y='Eficiencia_1a5',
+                       size='Empresas',size_max=36,color='Empresas',
+                       color_continuous_scale=['#DDECEB','#72B0AC','#217C83'],
+                       labels={'Numero_tecnologias_8':'Número de tecnologías (0–8)',
+                               'Eficiencia_1a5':'Eficiencia percibida (1–5)'})
+        fig.update_layout(coloraxis_showscale=False)
+        fig.update_xaxes(dtick=1,range=[-.5,8.5])
+        fig.update_yaxes(dtick=1,range=[.5,5.5])
+        rho=spearman(sub.Numero_tecnologias_8,sub.Eficiencia_1a5)
+        note=f'rho de Spearman = {rho:.3f}' if np.isfinite(rho) else 'rho no calculable'
+        graph(fig,'Intensidad tecnológica y eficiencia percibida','perceptions_adoption',
+              f'El tamaño de cada burbuja representa empresas; {note}. Asociación exploratoria, no causal.',355)
     z=counts(d.P10 if d.P10.notna().any() else d.Incentivos_01.map({0:'No',1:'Sí'}))
     st.markdown('**Acceso a incentivos o apoyos**')
     st.dataframe(pd.DataFrame({'Respuesta':z.index,'Empresas':z.values}),hide_index=True)
 with tabs[5]:
     st.subheader('Regresión binomial (GLM): intensidad de adopción tecnológica')
-    st.info('VERSIÓN ACTUALIZADA · Regresión binomial disponible. Si ve este mensaje, Streamlit ya cargó el nuevo código.')
+    st.caption('Modelo exploratorio sobre la intensidad de adopción (0 a 8 tecnologías).')
     st.latex(r'Y_i\sim\operatorname{Binomial}(8,p_i),\quad\operatorname{logit}(p_i)=\beta_0+\beta_1\,\mathrm{Flota}_i')
     st.caption('Variable dependiente: número de tecnologías adoptadas (0–8). Flota: categoría ordinal de 1 a 4. Modelo reducido predefinido.')
+    if len(d)<22:
+        st.warning('Modelo calculado sobre la selección filtrada. Para reproducir los resultados del artículo, seleccione todas las empresas.')
     result=glm_binomial(d.Numero_tecnologias_8,d.Flota_ord)
     if result is None:st.warning('Los filtros dejan datos insuficientes o un modelo no identificable. Amplíe la selección.');
     else:
@@ -269,6 +310,8 @@ with tabs[5]:
         graph(fig,'Efecto estimado del tamaño de flota','binomial_or','OR mayor que 1 indica asociación positiva con la propensión modelada a adoptar cada tecnología.',255)
         st.markdown(f"**Ecuación estimada:** logit(p) = {b[0]:.4f} + {b[1]:.4f} × Flota")
         st.caption(f"n={result['n']}; dispersión de Pearson/gl={result['disp']:.3f}; razón de verosimilitudes LR={result['lr']:.3f}. Estimación de máxima verosimilitud con algoritmo IRLS, sin SciPy.")
+        if result['disp']>1.5:
+            st.warning('La dispersión de Pearson supera 1,5: los errores estándar y valores p binomiales pueden ser demasiado optimistas. Considere un modelo cuasibinomial o análisis de sensibilidad.')
         st.warning('Interpretación exploratoria: n pequeño y muestra por conveniencia. El modelo binomial presupone ocho oportunidades de adopción con probabilidad común condicional y dependencia limitada; tecnologías heterogéneas y correlacionadas pueden incumplir ese supuesto. No afirmar causalidad ni representatividad poblacional.')
 with tabs[6]:
     st.subheader('Datos filtrados y trazabilidad')
